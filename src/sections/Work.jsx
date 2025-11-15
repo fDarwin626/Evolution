@@ -2,7 +2,7 @@ import { Icon } from "@iconify/react"
 import AnimatedHeaderSection from "../components/AnimatedHeaderSection"
 import { projects } from "../constants"
 import { useMediaQuery } from "react-responsive"
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 
@@ -11,7 +11,7 @@ const Work = () => {
     const mouse = useRef({x:0, y:0});
     const text = `Featured projects that have been crafted with precision and creativity, showcasing a blend of innovative design and robust functionality. Each project reflects a commitment to excellence and a passion for delivering impactful solutions. Explore these highlights to see how we bring ideas to life through meticulous planning, cutting-edge technology, and a user centric approach.`
     const isMobile = useMediaQuery({maxWidth:853})
-   const [currentIndex, setCurrentIndex] = useState(null);
+    const [currentIndex, setCurrentIndex] = useState(null);
 
     const handleMouseEnter = (index)  => {
       if(window.innerWidth < 768) return;
@@ -34,25 +34,25 @@ const Work = () => {
         duration:0.3,
         ease: "power2.out",
       })
-
     }
 
     const moveX = useRef(null);
     const moveY = useRef(null);
 
      useGSAP(() => {
-     moveX.current =
-      gsap.quickTo(previewRef.current, "x",{
-        duration:1.5,
-        ease: "power3.out", 
-      })
+     if (window.innerWidth >= 768) {
+       moveX.current = gsap.quickTo(previewRef.current, "x",{
+         duration:1.5,
+         ease: "power3.out", 
+       })
 
-     moveY.current =
-      gsap.quickTo(previewRef.current, "y",{
-        duration:2,
-        ease: "power3.out", 
-      })
-      gsap.from("#Projects", {
+       moveY.current = gsap.quickTo(previewRef.current, "y",{
+         duration:2,
+         ease: "power3.out", 
+       })
+     }
+     
+     const anim = gsap.from("#Projects", {
         y:100,
         opacity:0,
         delay: 0.5,
@@ -63,6 +63,14 @@ const Work = () => {
           trigger: "#Projects",
         }
       })
+      
+      return () => {
+        anim.scrollTrigger?.kill()
+        anim.kill()
+        if (previewRef.current) {
+          gsap.killTweensOf(previewRef.current)
+        }
+      }
     })
 
 
@@ -86,13 +94,25 @@ const Work = () => {
     }
    
     const previewRef = useRef(null);
+    
     const handleMouseMove = (e) => {
        if(window.innerWidth < 768) return;
-     mouse.current.x =  e.clientX + 24;
-      mouse.current.y =  e.clientY + 24;
-      moveX.current(mouse.current.x);
-      moveY.current(mouse.current.y);
+       mouse.current.x =  e.clientX + 24;
+       mouse.current.y =  e.clientY + 24;
+       moveX.current(mouse.current.x);
+       moveY.current(mouse.current.y);
     }
+    
+    useEffect(() => {
+      return () => {
+        if (previewRef.current) {
+          gsap.killTweensOf(previewRef.current)
+        }
+        overlayRefs.current.forEach(el => {
+          if (el) gsap.killTweensOf(el)
+        })
+      }
+    }, [])
 
     return (
     <section id="Projects" className="flex flex-col min-h-screen">
@@ -118,7 +138,6 @@ const Work = () => {
                   } }
                   className="absolute inset-0 hidden md:block 
                   duration-200 bg-black -z-10 clip-path"/>
-                  {/* Project title */}  
                   <div className="flex justify-between px-10 text-black
                   transition-all duration-500 md:group-hover:px-12
                   md:group-hover:text-white">
@@ -129,9 +148,7 @@ const Work = () => {
                     <Icon icon="iconoir:arrow-up-right"
                     className="md:size-6 size-5"/>
                   </div>
-                  {/* devider */}
                   <div className="w-full h-0.5 bg-black/80"/>
-                  {/* framework used */}
                   <div className="flex px-10 text-xs leading-loose gap-4
                   uppercase tramsition-all duration-500 md:text-sm gap-x-5
                   md:group-hover:px-12">
@@ -150,17 +167,17 @@ const Work = () => {
                         {project.description}
                       </p>
                     </div>
-                  {/* mobile preview images */}
                     <div className="relative flex items-center justify-center
                     px-10 md:hidden h-[400px]">
                       <img src={project.bgImage} alt={`${project.name}-bg-image`
-                    } className="object-cover w-full h-full rounded-md brightness-50"/>
+                    } className="object-cover w-full h-full rounded-md brightness-50"
+                    loading="lazy"/>
                     <img src={project.image} alt={`${project.name}-image`}
-                    className="absolute bg-center px-14 rounded-xl" />
+                    className="absolute bg-center px-14 rounded-xl"
+                    loading="lazy" />
                     </div>
                 </div>
             ))}
-            {/* desktop preview images */}
               <div ref={previewRef}
               className="fixed -top-1/6 left-0 z-50 overflow-hidden
               border-8 border-black pointer-events-none w-[960px] md:block

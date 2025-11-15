@@ -3,41 +3,50 @@ import gsap from "gsap"
 import { ScrollTrigger } from "gsap/ScrollTrigger"
 
 gsap.registerPlugin(ScrollTrigger)
+
 const ServiceSummary = () => {
 
     useGSAP(() => {
-      gsap.to('#title-service-1', {
+      const anim1 = gsap.to('#title-service-1', {
         xPercent:20,
         scrollTrigger:{
-            target: "#title-service-1",
+            trigger: "#title-service-1",
             scrub: true,
         }
       })
       
-       gsap.to('#title-service-2', {
+      const anim2 = gsap.to('#title-service-2', {
         xPercent:-30,
         scrollTrigger:{
-            target: "#title-service-2",
+            trigger: "#title-service-2",
             scrub: true,
         }
       })  
  
-      gsap.to('#title-service-3', {
+      const anim3 = gsap.to('#title-service-3', {
         xPercent:100,
         scrollTrigger:{
-            target: "#title-service-3",
+            trigger: "#title-service-3",
             scrub: true,
         }
-      })  
-      gsap.to('#title-service-4', {
+      })
+      
+      const anim4 = gsap.to('#title-service-4', {
         xPercent:-100,
         scrollTrigger:{
-            target: "#title-service-4",
+            trigger: "#title-service-4",
             scrub: true,
         }
-      })  
+      })
       
+      return () => {
+        [anim1, anim2, anim3, anim4].forEach(anim => {
+          anim.scrollTrigger?.kill()
+          anim.kill()
+        })
+      }
     })
+    
   return (
     <section  className="relative min-h-screen mt-20 overflow-hidden font-light leading-snug
     text-center  contact-text-responsive">

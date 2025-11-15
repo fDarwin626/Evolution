@@ -69,7 +69,10 @@ function horizontalLoop(items, config) {
     tl.vars.onReverseComplete();
     tl.reverse();
   }
-  return tl;
+  return() => { 
+    tl.kill();
+  Observer.kill();
+  }
 }
 useEffect(() => {
     const tl = horizontalLoop(itemsRef.current, {

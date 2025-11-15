@@ -29,7 +29,11 @@ const AnimatedHeaderSection = ({subtitle, title, text,
       }, 
       "<+0.2"
     )
-     }, [])
+    return() => {
+      if(tl.scrollTrigger) tl.scrollTrigger.kill();
+      tl.kill();
+    }
+     }, [withScrollTrigger])
     
 
 

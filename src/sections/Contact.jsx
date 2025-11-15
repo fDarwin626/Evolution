@@ -17,8 +17,9 @@ const Contact = () => {
         `Now Just imagine , I code`,
         `Now Just imagine , I code`,
     ]
+    
     useGSAP(() => {
-       gsap.from(".social-link", {
+       const anim = gsap.from(".social-link", {
             y: 100,
             opacity: 0,
             delay: 0.5,
@@ -28,8 +29,14 @@ const Contact = () => {
             scrollTrigger:{
               trigger: ".social-link"  
             }
-       }) 
+       })
+       
+       return () => {
+         anim.scrollTrigger?.kill()
+         anim.kill()
+       }
     }, [])
+    
   return (
     <section id="contact" className="flex flex-col justify-between
     min-h-screen bg-black">

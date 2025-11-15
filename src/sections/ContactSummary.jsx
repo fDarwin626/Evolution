@@ -1,4 +1,4 @@
-import  { useRef } from 'react';
+import { useRef } from 'react';
 import Marquee from '../components/Marquee';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
@@ -20,8 +20,9 @@ const ContactSummary = () => {
      "Contact me",
      "Contact me",
     ];
+    
     useGSAP(() => {
-      gsap.to(containerRef.current, {
+      const scrollTriggerInstance = gsap.to(containerRef.current, {
         scrollTrigger: {
           trigger: containerRef.current,
           start: "center center",
@@ -29,17 +30,22 @@ const ContactSummary = () => {
           scrub: 0.5,
           pin: true,
           pinSpacing:true,
-
         }
       })
-    })    
+      
+      return () => {
+        if (scrollTriggerInstance.scrollTrigger) {
+          scrollTriggerInstance.scrollTrigger.kill();
+        }
+        scrollTriggerInstance.kill();
+      }
+    })
+    
   return (
   <section ref={containerRef} className="flex flex-col items-center
   justify-between min-h-screen gap-12 mt-16 text-center">
-    {/* Marquee */}
     <Marquee
     items={items}
-
     />
      <div className="overflow-hidden font-light text-center
      contact-text-responsive">
@@ -48,7 +54,6 @@ const ContactSummary = () => {
           web and Mobile applications    <span className='text-gold'>together</span>"
         </p>
      </div>
-    {/* Marquee */}
     <Marquee
     items={items2}
     reverse={true}
@@ -56,7 +61,6 @@ const ContactSummary = () => {
     IconclassName='stroke-gold stroke-2 text-primary'
     icon='material-symbols-light:square'
     />
-
   </section>
 )
 }

@@ -3,6 +3,7 @@ import { Canvas } from "@react-three/fiber"
 import { Environment, Float, Lightformer } from "@react-three/drei"
 import { useMediaQuery } from "react-responsive"
 import AnimatedHeaderSection from "../components/AnimatedHeaderSection"
+import { Suspense } from "react"
 
 const Hero = () => {
       const text = `I help brands and startups gain an unfair advantage
@@ -20,7 +21,12 @@ const Hero = () => {
   />
 <figure className="absolute inset-0 -z-50 pointer-events-none" 
   style={{width: '100vw', height: '100vh'}}>
-  <Canvas shadows
+  <Canvas shadows = {!isMobile}
+  dpr={isMobile ? [1,1] : [1.2]}
+  gl={{antialias: !isMobile,
+       powerPreference: isMobile ? "low-power" : "high-performance"
+  }}
+
     camera={{
       position: isMobile ? [0, 0, -10] : [0, 0, -10],  // Same for both
       fov: 17.5, 
@@ -28,26 +34,40 @@ const Hero = () => {
       far: 20
     }}>
     
-    <ambientLight intensity={1.7} color='#f4d9b3'/>
-    
-    <directionalLight 
-      position={[5, 5, 5]} 
-      intensity={2}
-      color="#ffe4c4"
-      castShadow
-    />
-    
-    <pointLight
-      position={[0, -3, 3]}
-      intensity={1.2} 
-      color="#ffd89b"
-    />
-    
-    <pointLight
-      position={[-5, -2, 2]}
-      intensity={0.8} 
-      color="#ffcf8e" 
-    />
+{/* CHANGE: Conditional lighting based on device */}
+  {isMobile ? (
+    // Simple mobile lighting - only 2 lights instead of 5
+    <>
+      <ambientLight intensity={2.5} color='#f4d9b3'/>
+      <directionalLight 
+        position={[5, 5, 5]} 
+        intensity={1.5}
+        color="#ffe4c4"
+      />
+    </>
+  ) : (
+    // Full desktop lighting
+    <>
+      <ambientLight intensity={1.7} color='#f4d9b3'/>
+      <directionalLight 
+        position={[5, 5, 5]} 
+        intensity={2}
+        color="#ffe4c4"
+        castShadow
+      />
+      <pointLight
+        position={[0, -3, 3]}
+        intensity={1.2} 
+        color="#ffd89b"
+      />
+      <pointLight
+        position={[-5, -2, 2]}
+        intensity={0.8} 
+        color="#ffcf8e" 
+      />
+    </>
+  )}
+  
 
     <Float speed={0.7}>
       <Planet 

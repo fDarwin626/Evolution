@@ -21,22 +21,24 @@ When I'm not coding?
 - Indulging in my love for travel`;
     
     const imgRef = useRef(null);
+    
     useGSAP(() => {
-       gsap.to("#About", {
+       const scaleAnimation = gsap.to("#About", {
         scale: 0.95,
         scrollTrigger: {
             trigger: "#About",
             start: "bottom 80%",
             end: "bottom 20%",
             scrub: true,
-           // markers: true,
         },
         ease: "power1.inOut",
        })
+       
        gsap.set(imgRef.current, {
         clipPath: " polygon(0 100%, 75% 100%, 100% 100%, 0% 100%)",
        })
-        gsap.to(imgRef.current, {
+       
+        const imgAnimation = gsap.to(imgRef.current, {
           clipPath: "polygon(0 100%, 100% 100%, 100% 0, 0 0)",
           duration: 2.1,
           ease: "power4.out",
@@ -44,10 +46,17 @@ When I'm not coding?
             trigger: imgRef.current,
           }
         })
+        
+        return () => {
+          scaleAnimation.scrollTrigger?.kill()
+          scaleAnimation.kill()
+          imgAnimation.scrollTrigger?.kill()
+          imgAnimation.kill()
+        }
     })
+    
   return (
-    <section id='About' className="min-h-screen bg-black rounded-b-4xl
-    ">
+    <section id='About' className="min-h-screen bg-black rounded-b-4xl">
         <AnimatedHeaderSection
         subtitle={"Code with purpose, Built to scale"}
         title={'About'}
@@ -63,6 +72,8 @@ When I'm not coding?
              src="images/my_img.jpg"
                 alt="man image"
                 className="w-md rounded-3xl"
+                loading="lazy"
+                decoding="async"
             />
             <AnimatedTextLines 
             text={aboutText}

@@ -13,9 +13,11 @@ const Services = () => {
    const isDesktop = useMediaQuery({minWidth: "48rem"})
 
    useGSAP(() => {
+     const animations = []
+     
      serviceRefs.current.forEach((el)=>{
       if(!el) return;
-      gsap.from(el, {
+      const anim = gsap.from(el, {
         y:200,
         scrollTrigger: {
           trigger: el,
@@ -24,7 +26,15 @@ const Services = () => {
         duration: 1,
         ease: 'circ.out'
       })
-     } )
+      animations.push(anim)
+     })
+     
+     return () => {
+       animations.forEach(anim => {
+         anim.scrollTrigger?.kill()
+         anim.kill()
+       })
+     }
    }, [])
 
 

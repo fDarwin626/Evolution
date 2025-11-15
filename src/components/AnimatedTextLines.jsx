@@ -13,7 +13,7 @@ const AnimatedTextLines = ({text, className}) => {
 
     useGSAP(() => {
         if(lineRef.current.length > 0) {
-            gsap.from(lineRef.current, {
+            const anim = gsap.from(lineRef.current, {
                 y:100,
                 opacity:0,
                 duration:1,
@@ -23,8 +23,14 @@ const AnimatedTextLines = ({text, className}) => {
                     trigger: containerRef.current,
                 }
             })
+            
+            return () => {
+              anim.scrollTrigger?.kill();
+              anim.kill();
+            }
         }
-    })
+    }, [text])
+    
   return (
     <div ref={containerRef} 
     className={className}>

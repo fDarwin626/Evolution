@@ -18,7 +18,7 @@ const Work = () => {
     
     // Memoize mobile text
     const displayText = useMemo(() => 
-      isMobile ? "Featured projects that have been crafted with precision and creativity" : text,
+      isMobile ? "Featured projects that have been crafted with precision and creativity {CLICK ON THE PROJECT TITLE TO SEE FULL LIVE SITE OF PROJECT}" : text,
       [isMobile, text]
     );
 

@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+
+
+:root {
+  --about-gap: 2rem;
+  --about-padding: 1.5rem;
+  --about-text: 1rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --about-gap: 3rem;
+    --about-padding: 2rem;
+    --about-text: 1.125rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --about-gap: 4rem;
+    --about-padding: 2.5rem;
+    --about-text: 1.875rem;
+  }
+}
+
+
 /* Amiamie Regular */
 @font-face {
   font-family: "Amiamie";

@@ -1,13 +1,12 @@
 import gsap from "gsap";
 import { Observer } from "gsap/all";
 import { useEffect, useRef, useMemo, memo } from "react"
-import { Icon } from "@iconify/react/dist/iconify.js"
 
 gsap.registerPlugin(Observer);
 
 const Marquee = memo(({ 
   items, 
-  icon = "mdi:star-four-points",
+  icon = "★", // Use simple text/emoji instead of Iconify
   className = "text-white bg-black",
   IconclassName = "w-10 h-15 text-gold", 
   reverse = false,
@@ -16,6 +15,7 @@ const Marquee = memo(({
   const itemsRef = useRef([]);
   const tlRef = useRef(null);
   const observerRef = useRef(null);
+  const rafRef = useRef(null); // For throttling
 
   // Detect mobile for performance adjustments
   const isMobile = useMemo(() => 
@@ -23,11 +23,11 @@ const Marquee = memo(({
     []
   );
 
-  // Memoize duplicated items to prevent recalculation
+  // Memoize duplicated items - REDUCE duplicates
   const displayItems = useMemo(() => {
     if (!items || items.length === 0) return [];
-    // Mobile: duplicate 2x, Desktop: duplicate 3x
-    const duplicateCount = isMobile ? 2 : 3;
+    // Reduce duplicates: Mobile 2x, Desktop 2x (was 3x)
+    const duplicateCount = 2;
     return Array(duplicateCount).fill(items).flat();
   }, [items, isMobile]);
 
@@ -52,8 +52,8 @@ const Marquee = memo(({
       const xPercents = [];
       let curIndex = 0;
       
-      // Adjust speed based on device
-      const baseSpeed = isMobile ? 0.8 : 1;
+      // Adjust speed based on device - SLOWER on mobile
+      const baseSpeed = isMobile ? 0.5 : 0.8;
       const pixelsPerSecond = (config.speed || baseSpeed) * 100;
       const snap = config.snap === false ? v => v : gsap.utils.snap(config.snap || 1);
 
@@ -132,42 +132,59 @@ const Marquee = memo(({
       return tl;
     };
 
-    // Create timeline
+    // Create timeline with reduced speed
     tlRef.current = horizontalLoop(itemsRef.current, {
       repeat: -1,
-      paddingRight: isMobile ? 20 : 30,
+      paddingRight: isMobile ? 15 : 25,
       reversed: reverse,
-      speed: isMobile ? 0.7 : 1
+      speed: isMobile ? 0.5 : 0.8
     });
 
-    // Create observer with throttling for mobile
+    // Create observer with HEAVY throttling on mobile
+    let lastUpdate = 0;
+    const throttleDelay = isMobile ? 100 : 50; // Throttle updates
+
     observerRef.current = Observer.create({
       target: window,
-      type: "wheel,touch,scroll",
-      tolerance: isMobile ? 20 : 10, // Higher tolerance on mobile
+      type: isMobile ? "touch" : "wheel,touch", // Remove scroll on mobile
+      tolerance: isMobile ? 30 : 10,
       onChangeY(self) {
+        const now = Date.now();
+        
+        // Throttle updates on mobile
+        if (now - lastUpdate < throttleDelay) {
+          if (rafRef.current) cancelAnimationFrame(rafRef.current);
+          return;
+        }
+        lastUpdate = now;
+        
         if (!tlRef.current) return;
         
-        // Reduce effect intensity on mobile
-        const baseFactor = isMobile ? 1.5 : 2.5;
+        // REDUCE effect intensity significantly on mobile
+        const baseFactor = isMobile ? 1 : 2;
         let factor = baseFactor;
         
         if ((!reverse && self.deltaY < 0) || (reverse && self.deltaY > 0)) {
           factor *= -1;
         }
         
-        gsap.timeline({
-          defaults: { ease: "none" }
-        })
-        .to(tlRef.current, { 
-          timeScale: factor * (isMobile ? 1.5 : 2.5), 
-          duration: 0.2, 
-          overwrite: true 
-        })
-        .to(tlRef.current, { 
-          timeScale: factor / (isMobile ? 1.5 : 2.5), 
-          duration: 1 
-        }, "+=0.3");
+        // Use RAF to batch updates
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        
+        rafRef.current = requestAnimationFrame(() => {
+          gsap.timeline({
+            defaults: { ease: "power1.out" }
+          })
+          .to(tlRef.current, { 
+            timeScale: factor * (isMobile ? 1.2 : 2), 
+            duration: isMobile ? 0.3 : 0.2, 
+            overwrite: true 
+          })
+          .to(tlRef.current, { 
+            timeScale: factor / (isMobile ? 1.2 : 2), 
+            duration: isMobile ? 1.5 : 1 
+          }, "+=0.2");
+        });
       }
     });
 
@@ -181,6 +198,10 @@ const Marquee = memo(({
         observerRef.current.kill();
         observerRef.current = null;
       }
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
   }, [items, reverse, isMobile]);
 
@@ -192,14 +213,14 @@ const Marquee = memo(({
         whitespace-nowrap ${className}`}
       style={{ 
         willChange: 'transform',
-        transform: 'translateZ(0)',
-        backfaceVisibility: 'hidden'
+        transform: 'translate3d(0, 0, 0)',
+        WebkitTransform: 'translate3d(0, 0, 0)',
       }}
     >
       <div 
         className="flex"
         style={{ 
-          transform: 'translateZ(0)',
+          transform: 'translate3d(0, 0, 0)',
         }}
       >
         {displayItems.map((text, index) => (
@@ -210,14 +231,11 @@ const Marquee = memo(({
             key={`${text}-${index}`}
             className="flex items-center px-8 gap-x-8 md:px-16 md:gap-x-16"
             style={{ 
-              transform: 'translateZ(0)',
+              transform: 'translate3d(0, 0, 0)',
             }}
           >
             {text}
-            <Icon 
-              icon={icon} 
-              className={IconclassName}
-            />
+            <span className={IconclassName}>{icon}</span>
           </span>
         ))}
       </div>

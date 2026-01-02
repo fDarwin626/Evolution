@@ -1,4 +1,6 @@
 import { useRef, useMemo, memo } from "react";
+import { LazyLoadImage } from 'react-lazy-load-image-component';
+import 'react-lazy-load-image-component/src/effects/blur.css';
 import AnimatedHeaderSection from "../components/AnimatedHeaderSection"
 import AnimatedTextLines from "../components/AnimatedTextLines";
 import { useGSAP } from "@gsap/react";
@@ -20,43 +22,44 @@ When I'm not coding?
 - Crafting furniture (yes, I love woodworking) as a matter of fact, I'm also a carpenter
 - Indulging in my love for travel`;
     
-  const imgRef = useRef(null);
+  const imgWrapperRef = useRef(null); // Changed to wrapper ref
   const sectionRef = useRef(null);
   
-  // Detect mobile for conditional animations
   const isMobile = useMemo(() => 
     typeof window !== 'undefined' && window.innerWidth < 768,
     []
   );
     
   useGSAP(() => {
-    if (!sectionRef.current || !imgRef.current) return;
+    if (!sectionRef.current || !imgWrapperRef.current) return;
 
-    // Scale animation - lighter on mobile
     const scaleAnimation = gsap.to(sectionRef.current, {
-      scale: isMobile ? 0.98 : 0.95, // Less aggressive on mobile
+      scale: isMobile ? 0.98 : 0.95,
       scrollTrigger: {
         trigger: sectionRef.current,
         start: "bottom 80%",
         end: "bottom 20%",
-        scrub: isMobile ? 0.5 : true, // Smooth scrub on mobile
+        scrub: isMobile ? 0.5 : true,
         fastScrollEnd: true,
         preventOverlaps: true
       },
       ease: "power1.inOut",
     });
        
-    // Image reveal animation
-    gsap.set(imgRef.current, {
+    // Find the actual img element inside the wrapper
+    const imgElement = imgWrapperRef.current.querySelector('img');
+    if (!imgElement) return;
+    
+    gsap.set(imgElement, {
       clipPath: "polygon(0 100%, 75% 100%, 100% 100%, 0% 100%)",
     });
        
-    const imgAnimation = gsap.to(imgRef.current, {
+    const imgAnimation = gsap.to(imgElement, {
       clipPath: "polygon(0 100%, 100% 100%, 100% 0, 0 0)",
-      duration: isMobile ? 1.5 : 2.1, // Faster on mobile
+      duration: isMobile ? 1.5 : 2.1,
       ease: "power4.out",
       scrollTrigger: {
-        trigger: imgRef.current,
+        trigger: imgWrapperRef.current,
         start: "top 80%",
         end: "top 20%",
         toggleActions: "play none none reverse",
@@ -71,7 +74,7 @@ When I'm not coding?
       if (imgAnimation.scrollTrigger) imgAnimation.scrollTrigger.kill();
       imgAnimation.kill();
     };
-  }, { scope: sectionRef, dependencies: [isMobile] });
+  }, { dependencies: [isMobile] });
     
   return (
     <section 
@@ -99,24 +102,22 @@ When I'm not coding?
         xl:text-3xl
         text-white/60"
       >
-        <img
-          ref={imgRef}
-          src="images/my_img.jpg"
-          alt="man image"
-          className="w-full max-w-[280px]
-            sm:max-w-[320px]
-            md:max-w-[400px]
-            lg:max-w-md
-            rounded-2xl
-            sm:rounded-2xl
-            lg:rounded-3xl"
-          loading="lazy"
-          decoding="async"
-          style={{
-            transform: 'translateZ(0)',
-            willChange: 'clip-path'
-          }}
-        />
+        <div 
+          ref={imgWrapperRef}
+          className="w-full max-w-[280px] sm:max-w-[320px] md:max-w-[400px] lg:max-w-md"
+        >
+          <LazyLoadImage
+            src="images/my_img.jpg"
+            alt="man image"
+            effect="blur"
+            threshold={100}
+            className="w-full rounded-2xl sm:rounded-2xl lg:rounded-3xl"
+            style={{
+              transform: 'translateZ(0)',
+              willChange: 'clip-path'
+            }}
+          />
+        </div>
         
         <AnimatedTextLines 
           text={aboutText}

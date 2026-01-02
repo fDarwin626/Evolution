@@ -4,6 +4,7 @@ import { socials } from "../constants"
 import Marquee from "../components/Marquee"
 import { useGSAP } from "@gsap/react"
 import { gsap } from "gsap/all"
+import { BsBox } from "react-icons/bs" // Box icon from Bootstrap Icons
 
 const Contact = memo(() => {
   const text = `Got a question? Need a developer? how or project idea?
@@ -13,13 +14,8 @@ const Contact = memo(() => {
     `Now Just imagine , I code`,
     `Now Just imagine , I code`,
     `Now Just imagine , I code`,
-    `Now Just imagine , I code`,
-    `Now Just imagine , I code`,
-    `Now Just imagine , I code`,
-    `Now Just imagine , I code`,
   ], []);
   
-  // Detect mobile with debouncing for performance
   const isMobile = useMemo(() => 
     typeof window !== 'undefined' && window.innerWidth < 768,
     []
@@ -43,11 +39,10 @@ const Contact = memo(() => {
         toggleActions: "play none none reverse",
         fastScrollEnd: true,
         preventOverlaps: true,
-        once: false
+        once: true
       },
       clearProps: "all",
       force3D: true,
-      willChange: "transform, opacity"
     });
        
     return () => {
@@ -56,13 +51,11 @@ const Contact = memo(() => {
     };
   }, { dependencies: [isMobile], scope: ".contact-section" });
 
-  // Memoize email click handler
   const handleEmailClick = useCallback((e) => {
     e.preventDefault();
     window.location.href = "mailto:fuoseighadarwin@gmail.com";
   }, []);
 
-  // Memoize phone click handler
   const handlePhoneClick = useCallback((e) => {
     e.preventDefault();
     window.location.href = "tel:+2349128218436";
@@ -94,7 +87,7 @@ const Contact = memo(() => {
           <div className="flex flex-col w-full gap-4 sm:gap-6 md:gap-10">
             
             {/* Email Section */}
-            <div className="social-link">
+            <div className="social-link" style={{ transform: 'translateZ(0)' }}>
               <h2 className="mb-1 text-[18px] sm:text-[22px] md:text-[24px] lg:text-[32px]">
                 E-mail
               </h2>
@@ -115,7 +108,7 @@ const Contact = memo(() => {
             </div>
 
             {/* Phone Section */}
-            <div className="social-link">
+            <div className="social-link" style={{ transform: 'translateZ(0)' }}>
               <h2 className="mb-1 text-[18px] sm:text-[22px] md:text-[24px] lg:text-[32px]">
                 Phone
               </h2>
@@ -136,7 +129,7 @@ const Contact = memo(() => {
             </div>
 
             {/* Social Platforms Section */}
-            <div className="social-link">
+            <div className="social-link" style={{ transform: 'translateZ(0)' }}>
               <h2 className="mb-1 text-[18px] sm:text-[22px] md:text-[24px] lg:text-[32px]">
                 Social Platforms
               </h2>
@@ -167,12 +160,12 @@ const Contact = memo(() => {
         </div>
       </div>
 
-      {/* Marquee */}
+      {/* Marquee - NOW WITH REACT ICON */}
       <Marquee
         items={items}
         className="text-white bg-transparent"
-        icon="simple-icons:creativetechnology"
-        IconclassName="w-12 h-12 text-gold
+        icon={<BsBox />}
+        IconclassName="w-12 h-12 text-yellow-400
           sm:w-16 sm:h-16
           md:w-20 md:h-20
           lg:w-24 lg:h-24"

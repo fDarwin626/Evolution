@@ -6,6 +6,7 @@ import AnimatedTextLines from "../components/AnimatedTextLines";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/all";
+import { projects } from "../constants";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -21,15 +22,15 @@ When I'm not coding?
 - You can find me exploring the latest tech trends
 - Crafting furniture (yes, I love woodworking) as a matter of fact, I'm also a carpenter
 - Indulging in my love for travel`;
-    
-  const imgWrapperRef = useRef(null); // Changed to wrapper ref
+
+  const imgWrapperRef = useRef(null);
   const sectionRef = useRef(null);
-  
-  const isMobile = useMemo(() => 
+
+  const isMobile = useMemo(() =>
     typeof window !== 'undefined' && window.innerWidth < 768,
     []
   );
-    
+
   useGSAP(() => {
     if (!sectionRef.current || !imgWrapperRef.current) return;
 
@@ -45,15 +46,14 @@ When I'm not coding?
       },
       ease: "power1.inOut",
     });
-       
-    // Find the actual img element inside the wrapper
+
     const imgElement = imgWrapperRef.current.querySelector('img');
     if (!imgElement) return;
-    
+
     gsap.set(imgElement, {
       clipPath: "polygon(0 100%, 75% 100%, 100% 100%, 0% 100%)",
     });
-       
+
     const imgAnimation = gsap.to(imgElement, {
       clipPath: "polygon(0 100%, 100% 100%, 100% 0, 0 0)",
       duration: isMobile ? 1.5 : 2.1,
@@ -67,7 +67,7 @@ When I'm not coding?
       },
       clearProps: "all"
     });
-        
+
     return () => {
       if (scaleAnimation.scrollTrigger) scaleAnimation.scrollTrigger.kill();
       scaleAnimation.kill();
@@ -75,11 +75,11 @@ When I'm not coding?
       imgAnimation.kill();
     };
   }, { dependencies: [isMobile] });
-    
+
   return (
-    <section 
+    <section
       ref={sectionRef}
-      id='About' 
+      id='About'
       className="min-h-screen bg-black rounded-b-2xl sm:rounded-b-3xl lg:rounded-b-4xl"
     >
       <AnimatedHeaderSection
@@ -89,7 +89,7 @@ When I'm not coding?
         textcolor={"text-white"}
         withScrollTrigger={true}
       />
-      
+
       <div className="flex flex-col items-center justify-between
         gap-8 px-6 pb-12
         sm:gap-12 sm:px-8 sm:pb-14
@@ -102,7 +102,7 @@ When I'm not coding?
         xl:text-3xl
         text-white/60"
       >
-        <div 
+        <div
           ref={imgWrapperRef}
           className="w-full max-w-[280px] sm:max-w-[320px] md:max-w-[400px] lg:max-w-md"
         >
@@ -118,11 +118,57 @@ When I'm not coding?
             }}
           />
         </div>
-        
-        <AnimatedTextLines 
+
+        <AnimatedTextLines
           text={aboutText}
           className="w-full max-w-full lg:max-w-none"
         />
+      </div>
+
+      {/* Stats strip */}
+      <div className="flex border-t border-white/10">
+        <div className="flex-1 px-6 py-5 border-r border-white/10
+          sm:px-8 md:px-10">
+          <span className="block font-light text-white
+            text-3xl sm:text-4xl md:text-5xl mb-1">
+            3+
+          </span>
+          <span className="text-xs tracking-widest uppercase text-white/30">
+            Years exp.
+          </span>
+        </div>
+
+        <div className="flex-1 px-6 py-5 border-r border-white/10
+          sm:px-8 md:px-10">
+          <span className="block font-light text-white
+            text-3xl sm:text-4xl md:text-5xl mb-1">
+            {projects.length}
+          </span>
+          <span className="text-xs tracking-widest uppercase text-white/30">
+            Projects shipped
+          </span>
+        </div>
+
+        <div className="flex-1 px-6 py-5 border-r border-white/10
+          sm:px-8 md:px-10">
+          <span className="block font-light text-white
+            text-3xl sm:text-4xl md:text-5xl mb-1">
+            FS
+          </span>
+          <span className="text-xs tracking-widest uppercase text-white/30">
+            Web &amp; Mobile
+          </span>
+        </div>
+
+        <div className="flex-1 px-6 py-5 sm:px-8 md:px-10">
+          <span className="block font-light text-white
+            text-3xl sm:text-4xl md:text-5xl mb-1">
+            ∞
+          </span>
+          <span className="text-xs tracking-widest uppercase text-white/30">
+            Coffee consumed
+          </span>
+        </div>
       </div>
     </section>
   );

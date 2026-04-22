@@ -1,123 +1,169 @@
-import { useMemo } from "react"
-import { useGSAP } from "@gsap/react"
-import gsap from "gsap"
-import { ScrollTrigger } from "gsap/ScrollTrigger"
+import { useRef, useMemo } from "react";
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
-gsap.registerPlugin(ScrollTrigger)
+gsap.registerPlugin(ScrollTrigger);
 
 const ServiceSummary = () => {
-    
-    // Detect mobile for optimized animations
-    const isMobile = useMemo(() => 
-      typeof window !== 'undefined' && window.innerWidth < 768,
-      []
-    )
+  const sectionRef = useRef(null);
+  const lineRef    = useRef(null);
 
-    useGSAP(() => {
-      const anim1 = gsap.to('#title-service-1', {
-        xPercent: isMobile ? 10 : 20,
+  const isMobile = useMemo(() =>
+    typeof window !== "undefined" && window.innerWidth < 768, []
+  );
+
+  const rows = [
+    { id: "svc-1", text: "Architecture",                dir: 1,   italic: false, offset: "0px"   },
+    { id: "svc-2", text: "Development",                 dir: -1,  italic: false, offset: "0px"   },
+    { id: "svc-3", text: "Deployment",                  dir: 1,   italic: true,  offset: "0px"   },
+    { id: "svc-4", text: "APIs & Integration",          dir: -1,  italic: false, offset: "0px"   },
+    { id: "svc-5", text: "FullStack · Mobile",          dir: 1,   italic: false, offset: "0px"   },
+    { id: "svc-6", text: "Scalability",                 dir: -1,  italic: true,  offset: "0px"   },
+  ];
+
+  useGSAP(() => {
+    const anims = [];
+
+    rows.forEach(({ id, dir }) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const a = gsap.to(el, {
+        xPercent: dir * (isMobile ? 12 : 28),
+        ease: "none",
         scrollTrigger: {
-            trigger: "#title-service-1",
-            scrub: isMobile ? 0.5 : true,
-            fastScrollEnd: true,
+          trigger: el,
+          scrub: isMobile ? 0.6 : 1,
+          fastScrollEnd: true,
         },
         force3D: true,
-      })
-      
-      const anim2 = gsap.to('#title-service-2', {
-        xPercent: isMobile ? -15 : -30,
+      });
+      anims.push(a);
+    });
+
+    // Thin line draws on scroll
+    if (lineRef.current) {
+      gsap.set(lineRef.current, { scaleX: 0, transformOrigin: "left center" });
+      const a = gsap.to(lineRef.current, {
+        scaleX: 1,
+        ease: "none",
         scrollTrigger: {
-            trigger: "#title-service-2",
-            scrub: isMobile ? 0.5 : true,
-            fastScrollEnd: true,
+          trigger: sectionRef.current,
+          start: "top 80%",
+          end: "bottom 60%",
+          scrub: 1,
         },
-        force3D: true,
-      })  
- 
-      const anim3 = gsap.to('#title-service-3', {
-        xPercent: isMobile ? 30 : 100,
-        scrollTrigger: {
-            trigger: "#title-service-3",
-            scrub: isMobile ? 0.5 : true,
-            fastScrollEnd: true,
-        },
-        force3D: true,
-      })
-      
-      const anim4 = gsap.to('#title-service-4', {
-        xPercent: isMobile ? -30 : -100,
-        scrollTrigger: {
-            trigger: "#title-service-4",
-            scrub: isMobile ? 0.5 : true,
-            fastScrollEnd: true,
-        },
-        force3D: true,
-      })
-      
-      return () => {
-        [anim1, anim2, anim3, anim4].forEach(anim => {
-          if (anim.scrollTrigger) anim.scrollTrigger.kill()
-          anim.kill()
-        })
-      }
-    }, [isMobile])
-    
+      });
+      anims.push(a);
+    }
+
+    return () => {
+      anims.forEach((a) => {
+        if (a.scrollTrigger) a.scrollTrigger.kill();
+        a.kill();
+      });
+    };
+  }, [isMobile]);
+
   return (
-    <section className="relative min-h-screen overflow-hidden font-light leading-snug
-    text-center contact-text-responsive
-    mt-12
-    sm:mt-16
-    md:mt-20
-    px-4 sm:px-6">
-        <div id="title-service-1" className="will-change-transform">
-            <p>Architecture</p>
-        </div>
-        
-        <div id="title-service-2" className="flex items-center justify-center
-        gap-2 will-change-transform
-        sm:gap-3
-        translate-x-8
-        sm:translate-x-12
-        md:translate-x-16">
-            <p className="font-normal">Development</p>
-            <div className="h-1 bg-gold
-            w-6
-            sm:w-8
-            md:w-10
-            lg:w-32"/>
-            <p>Deployment</p>
-        </div>
-        
-        <div id="title-service-3" className="flex items-center justify-center
-        flex-wrap will-change-transform
-        gap-2
-        sm:gap-3
-        translate-x-[-30px]
-        sm:translate-x-[-40px]
-        md:translate-x-[-50px]">
-            <p>APIs</p>
-            <div className="h-1 bg-gold
-            w-6
-            sm:w-8
-            md:w-10
-            lg:w-32"/>
-            <p className="italic">FullStack</p>
-            <div className="h-1 bg-gold
-            w-6
-            sm:w-8
-            md:w-10
-            lg:w-32"/>
-            <p>Scalability</p>
-        </div>
-        
-        <div id="title-service-4" className="will-change-transform
-        translate-x-24
-        sm:translate-x-36
-        md:translate-x-48">
-            <p>Databases</p>
-        </div>
-    </section>
-  )
-}
+    <section
+      ref={sectionRef}
+      className="relative overflow-hidden py-16 sm:py-24"
+      style={{ fontFamily: "'IBM Plex Mono', monospace" }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+        .svc-row {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          will-change: transform;
+          line-height: 0.88;
+          padding: 0.1em 0;
+        }
+        .svc-divider {
+          display: inline-block;
+          height: 3px;
+          background: currentColor;
+          opacity: 0.15;
+          flex-shrink: 0;
+        }
+      `}</style>
 
-export default ServiceSummary
+      {/* Section label */}
+      <div className="flex items-center gap-4 px-5 mb-10 lg:px-16">
+        <span style={{
+          fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: "9px",
+          letterSpacing: ".22em",
+          textTransform: "uppercase",
+          opacity: 0.3,
+        }}>
+          What I do
+        </span>
+        <div
+          ref={lineRef}
+          style={{ flex: 1, height: "1px", background: "currentColor", opacity: 0.1 }}
+        />
+        <span style={{
+          fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: "9px",
+          letterSpacing: ".15em",
+          opacity: 0.15,
+        }}>
+          FD / 2025
+        </span>
+      </div>
+
+      {/* Kinetic text rows */}
+      <div style={{ overflow: "hidden" }}>
+        {rows.map((row, i) => (
+          <div
+            key={row.id}
+            id={row.id}
+            className="svc-row"
+            style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: "clamp(44px, 12vw, 130px)",
+              letterSpacing: ".02em",
+              opacity: i % 2 === 0 ? 0.9 : 0.22,
+              fontStyle: row.italic ? "italic" : "normal",
+              gap: "clamp(12px, 2vw, 32px)",
+              transform: `translateX(${row.dir * (i * 3)}px)`,
+            }}
+          >
+            {/* Decorative dot for alternating rows */}
+            {i % 3 === 1 && (
+              <span
+                className="svc-divider"
+                style={{ width: "clamp(20px, 4vw, 60px)" }}
+              />
+            )}
+            <span>{row.text}</span>
+            {i % 3 === 2 && (
+              <span
+                className="svc-divider"
+                style={{ width: "clamp(20px, 4vw, 60px)" }}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Bottom micro label */}
+      <div className="flex justify-center mt-10">
+        <span style={{
+          fontFamily: "'IBM Plex Mono', monospace",
+          fontSize: "9px",
+          letterSpacing: ".22em",
+          textTransform: "uppercase",
+          opacity: 0.18,
+        }}>
+          Scroll to explore services ↓
+        </span>
+      </div>
+    </section>
+  );
+};
+
+export default ServiceSummary;

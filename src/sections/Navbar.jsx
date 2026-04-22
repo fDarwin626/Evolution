@@ -119,7 +119,7 @@ const Navbar = () => {
           sm:text-4xl
           md:text-6xl
           lg:text-8xl">
-            {['Home', 'Services', 'About', 'Projects', 'contact'].map((section, index) => (
+            {['Home', 'Services', 'About', 'Projects', 'Contact'].map((section, index) => (
               <div key={`nav-${section}-${index}`} 
                 ref={(el) => (linksRef.current[index] = el)} 
                 className="">

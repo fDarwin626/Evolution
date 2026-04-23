@@ -11,6 +11,9 @@ gsap.registerPlugin(ScrollTrigger);
 const WHATSAPP_URL =
   "https://wa.me/2349128218436?text=Hello%20Darwin%2C%20I%20came%20across%20your%20portfolio%20and%20I%27d%20love%20to%20collaborate%20with%20you%20on%20a%20project.%20Let%27s%20build%20something%20remarkable%20together!";
 
+
+const currentYear = new Date().getFullYear();
+
 /* ─── Info items for the panel ─── */
 const infoItems = [
   {
@@ -520,8 +523,8 @@ const About = memo(() => {
 
   const techStack = [
     "React", "Next.js", "TypeScript", "Python", "FastAPI", "Django",
-    "Flutter", "Golang", "Firebase", "PostgreSQL", "MongoDB",
-    "Supabase", "GSAP", "Docker", "Whisper AI", "GPT-4",
+    "Flutter", "Firebase", "PostgreSQL", "MongoDB",
+    "Supabase", "GSAP", "Docker", "Whisper AI", "TypeScript", "Node.js", "Express", "Redis",
   ];
 
   const offItems = [
@@ -592,7 +595,7 @@ const About = memo(() => {
         <span className="text-[10px] tracking-[.2em] uppercase text-white/25">
           About Me
         </span>
-        <span className="text-[10px] text-white/15 tracking-[.1em]">FD / 2025</span>
+        <span className="text-[10px] text-white/15 tracking-[.1em]">FD / {currentYear}</span>
       </div>
 
       {/* ── Hero title ── */}

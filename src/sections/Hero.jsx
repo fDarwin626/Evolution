@@ -119,15 +119,14 @@ const FloatingShape = () => {
 /* ─────────────────────────────────────────────────────────
    MOBILE HERO
 ───────────────────────────────────────────────────────── */
-const MobileHero = () => {
+const MobileHero = ({ animate }) => {
   const sectionRef = useRef(null)
   const nameRef    = useRef(null)
   const restRef    = useRef(null)
 
   useGSAP(() => {
-    if (!sectionRef.current || !nameRef.current || !restRef.current) return
+    if (!animate || !sectionRef.current || !nameRef.current || !restRef.current) return
     const tl = gsap.timeline({ defaults: { ease: "power3.out" } })
-    // Stagger each letter of DARWIN
     tl.from(nameRef.current.children, {
       y: 40,
       opacity: 0,
@@ -143,7 +142,7 @@ const MobileHero = () => {
       ease: "power3.out",
     }, "-=0.4")
     return () => tl.kill()
-  }, { scope: sectionRef })
+  }, { scope: sectionRef, dependencies: [animate] })
 
   return (
     <section
@@ -191,7 +190,6 @@ const MobileHero = () => {
         <div style={{ fontSize: "8px", letterSpacing: ".36em", textTransform: "uppercase", color: "rgba(0,0,0,0.28)", marginBottom: "6px" }}>
           404 No Bugs Found!
         </div>
-        {/* Each letter is a child span so GSAP can stagger them */}
         <h1
           ref={nameRef}
           style={{
@@ -310,7 +308,7 @@ const MobileHero = () => {
 /* ─────────────────────────────────────────────────────────
    DESKTOP HERO
 ───────────────────────────────────────────────────────── */
-const DesktopHero = () => {
+const DesktopHero = ({ animate }) => {
   const sectionRef  = useRef(null)
   const topBarRef   = useRef(null)
   const eyebrowRef  = useRef(null)
@@ -322,11 +320,10 @@ const DesktopHero = () => {
   const shapeRef    = useRef(null)
 
   useGSAP(() => {
-    if (!sectionRef.current) return
+    if (!animate || !sectionRef.current) return
     const tl = gsap.timeline({ defaults: { ease: "power4.out" } })
     tl.from(topBarRef.current,  { y: -20, opacity: 0, duration: 0.5, ease: "power2.out" })
       .from(eyebrowRef.current, { y: 20, opacity: 0, duration: 0.6 }, "-=0.1")
-      // Each letter of DARWIN slides up + fades in, staggered
       .from(nameRef.current.children, {
         y: 50,
         opacity: 0,
@@ -339,7 +336,7 @@ const DesktopHero = () => {
       .from(bottomRef.current.children, { y: 18, opacity: 0, stagger: 0.08, duration: 0.6 }, "-=0.4")
       .from(shapeRef.current, { opacity: 0, scale: 0.88, duration: 1.0, ease: "power2.out" }, "-=0.8")
     return () => tl.kill()
-  }, { scope: sectionRef })
+  }, { scope: sectionRef, dependencies: [animate] })
 
   return (
     <section
@@ -348,7 +345,7 @@ const DesktopHero = () => {
       style={{
         position: "relative", minHeight: "100svh", display: "flex",
         flexDirection: "column", justifyContent: "space-between",
-        overflow: "hidden", fontFamily: "'IBM Plex Mono', monospace", background: "#f0ede6",
+        overflow: "hidden", fontFamily: "'IBM Plex Mono', monospace",
       }}
     >
       <style>{`
@@ -433,7 +430,6 @@ const DesktopHero = () => {
           </span>
         </div>
         <div ref={nameWrapRef} style={{ overflow: "hidden", padding: "0 clamp(24px, 5vw, 48px)", marginBottom: "clamp(16px, 3vh, 28px)" }}>
-          {/* Each letter is a child span so GSAP can stagger them individually */}
           <h1
             ref={nameRef}
             style={{
@@ -508,9 +504,9 @@ const DesktopHero = () => {
 /* ─────────────────────────────────────────────────────────
    Hero — routes mobile vs desktop
 ───────────────────────────────────────────────────────── */
-const Hero = () => {
+const Hero = ({ animate }) => {
   const isMobile = useMediaQuery({ maxWidth: 853 })
-  return isMobile ? <MobileHero /> : <DesktopHero />
+  return isMobile ? <MobileHero animate={animate} /> : <DesktopHero animate={animate} />
 }
 
 export default Hero

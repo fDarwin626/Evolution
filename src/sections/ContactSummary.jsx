@@ -5,6 +5,8 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
+
+const currentYear = new Date().getFullYear();
 /* ─── SplitHeader: clip-from-below char stagger reveal ─── */
 const SplitHeader = memo(({ text, style, className, delay = 0, triggerRef }) => {
   const wrapRef = useRef(null);
@@ -163,7 +165,7 @@ const ContactSummary = () => {
             opacity: 0.12,
             flexShrink: 0,
           }}>
-            FD / 2025
+            FD / {currentYear}
           </span>
         </div>
       </div>

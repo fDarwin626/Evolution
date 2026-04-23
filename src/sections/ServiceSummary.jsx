@@ -9,6 +9,8 @@ const ServiceSummary = () => {
   const sectionRef = useRef(null);
   const lineRef    = useRef(null);
 
+  const currentYear = new Date().getFullYear();
+
   const isMobile = useMemo(() =>
     typeof window !== "undefined" && window.innerWidth < 768, []
   );
@@ -111,7 +113,7 @@ const ServiceSummary = () => {
           letterSpacing: ".15em",
           opacity: 0.15,
         }}>
-          FD / 2025
+          FD / {currentYear}
         </span>
       </div>
 

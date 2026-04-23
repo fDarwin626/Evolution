@@ -1,162 +1,516 @@
-import { Planet } from "../components/Planet"
-import { Canvas } from "@react-three/fiber"
-import { Environment, Float, Lightformer } from "@react-three/drei"
 import { useMediaQuery } from "react-responsive"
-import AnimatedHeaderSection from "../components/AnimatedHeaderSection"
-import { Suspense, useMemo } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useGSAP } from "@gsap/react"
+import gsap from "gsap"
+import Particles, { initParticlesEngine } from "@tsparticles/react"
+import { loadSlim } from "@tsparticles/slim"
+import * as THREE from "three"
 
-const Hero = () => {
-  const text = `I help brands and startups gain an unfair advantage
-    Through premium results driven websites and mobile apps`
-  
-  const isMobile = useMediaQuery({ maxWidth: 853 })
-  const isTablet = useMediaQuery({ minWidth: 854, maxWidth: 1024 })
-  
-  // Memoize camera settings
-  const cameraSettings = useMemo(() => ({
-    position: [0, 0, -10],
-    fov: 17.5, 
-    near: 1, 
-    far: 20
-  }), []);
-  
-  // Memoize canvas settings for performance
-  const canvasSettings = useMemo(() => ({
-    shadows: !isMobile,
-    dpr: isMobile ? [1, 1] : isTablet ? [1, 1.5] : [1, 2],
-    gl: {
-      antialias: !isMobile,
-      powerPreference: isMobile ? "low-power" : "high-performance",
+
+const currentYear = new Date().getFullYear()
+/* ─────────────────────────────────────────────────────────
+   Particles — tsparticles v3
+───────────────────────────────────────────────────────── */
+const ParticlesBg = () => {
+  const [engineReady, setEngineReady] = useState(false)
+  useEffect(() => {
+    initParticlesEngine(async (engine) => { await loadSlim(engine) })
+      .then(() => setEngineReady(true))
+  }, [])
+  if (!engineReady) return null
+  return (
+    <Particles
+      id="tsparticles"
+      options={{
+        background: { color: { value: "transparent" } },
+        fpsLimit: 60,
+        interactivity: {
+          events: { onHover: { enable: true, mode: "grab" }, onClick: { enable: true, mode: "push" } },
+          modes: { grab: { distance: 140, links: { opacity: 0.4 } }, push: { quantity: 2 } },
+        },
+        particles: {
+          color: { value: "#000000" },
+          links: { color: "#000000", distance: 150, enable: true, opacity: 0.08, width: 0.7 },
+          move: { enable: true, speed: 0.4, random: true, outModes: { default: "bounce" } },
+          number: { density: { enable: true, area: 900 }, value: 55 },
+          opacity: { value: 0.22, animation: { enable: true, speed: 0.4, minimumValue: 0.05, sync: false } },
+          shape: { type: "circle" },
+          size: { value: { min: 1, max: 2.2 } },
+        },
+        detectRetina: true,
+      }}
+      style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}
+    />
+  )
+}
+
+/* ─────────────────────────────────────────────────────────
+   Floating 3D Icosahedron — Three.js wireframe
+───────────────────────────────────────────────────────── */
+const FloatingShape = () => {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const w = canvas.offsetWidth || 300
+    const h = canvas.offsetHeight || 300
+
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.setSize(w, h)
+    renderer.setClearColor(0x000000, 0)
+
+    const scene  = new THREE.Scene()
+    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100)
+    camera.position.z = 4
+
+    const geo     = new THREE.IcosahedronGeometry(1.2, 1)
+    const wireMat = new THREE.MeshBasicMaterial({ color: 0x000000, wireframe: true, opacity: 0.12, transparent: true })
+    const wireMesh = new THREE.Mesh(geo, wireMat)
+    scene.add(wireMesh)
+
+    const solidMat  = new THREE.MeshPhongMaterial({ color: 0xe8e4da, shininess: 60, opacity: 0.6, transparent: true })
+    const solidMesh = new THREE.Mesh(new THREE.IcosahedronGeometry(1.15, 1), solidMat)
+    scene.add(solidMesh)
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8))
+    const dir = new THREE.DirectionalLight(0xffffff, 1.2)
+    dir.position.set(3, 3, 3)
+    scene.add(dir)
+    const pt = new THREE.PointLight(0xe5ff47, 0.8, 20)
+    pt.position.set(-3, -2, 2)
+    scene.add(pt)
+
+    let frameId, t = 0
+    const animate = () => {
+      frameId = requestAnimationFrame(animate)
+      t += 0.005
+      wireMesh.rotation.x  = t * 0.4
+      wireMesh.rotation.y  = t * 0.6
+      solidMesh.rotation.x = t * 0.4
+      solidMesh.rotation.y = t * 0.6
+      wireMesh.position.y  = Math.sin(t * 1.2) * 0.12
+      solidMesh.position.y = Math.sin(t * 1.2) * 0.12
+      renderer.render(scene, camera)
     }
-  }), [isMobile, isTablet]);
-  
-  // Memoize planet settings
-  const planetSettings = useMemo(() => ({
-    scale: isMobile ? 0.45 : isTablet ? 0.7 : 0.9,
-    position: isMobile ? [0, 0.15, 0] : isTablet ? [0, 0, 0] : [0, -0.1, 0]
-  }), [isMobile, isTablet]);
+    animate()
+
+    const onResize = () => {
+      if (!canvas) return
+      const nw = canvas.offsetWidth, nh = canvas.offsetHeight
+      renderer.setSize(nw, nh)
+      camera.aspect = nw / nh
+      camera.updateProjectionMatrix()
+    }
+    window.addEventListener("resize", onResize)
+
+    return () => {
+      cancelAnimationFrame(frameId)
+      window.removeEventListener("resize", onResize)
+      renderer.dispose(); geo.dispose(); wireMat.dispose(); solidMat.dispose()
+    }
+  }, [])
+
+  return <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
+}
+
+/* ─────────────────────────────────────────────────────────
+   MOBILE HERO
+───────────────────────────────────────────────────────── */
+const MobileHero = () => {
+  const sectionRef = useRef(null)
+  const nameRef    = useRef(null)
+  const restRef    = useRef(null)
+
+  useGSAP(() => {
+    if (!sectionRef.current || !nameRef.current || !restRef.current) return
+    const tl = gsap.timeline({ defaults: { ease: "power3.out" } })
+    // Stagger each letter of DARWIN
+    tl.from(nameRef.current.children, {
+      y: 40,
+      opacity: 0,
+      stagger: 0.07,
+      duration: 0.8,
+      ease: "power3.out",
+    })
+    .from(restRef.current.children, {
+      y: 24,
+      opacity: 0,
+      stagger: 0.1,
+      duration: 0.7,
+      ease: "power3.out",
+    }, "-=0.4")
+    return () => tl.kill()
+  }, { scope: sectionRef })
 
   return (
-    <section id="Home" className="flex flex-col justify-end min-h-screen">
-      <AnimatedHeaderSection
-        subtitle='404 No Bugs Found!'
-        title='Darwin'
-        text={text}
-        textcolor='text-black'
-      />
-      
-      <figure 
-        className="absolute inset-0 -z-50 pointer-events-none" 
-        style={{ width: '100vw', height: '100vh' }}
-      >
-        <Canvas 
-          shadows={canvasSettings.shadows}
-          dpr={canvasSettings.dpr}
-          gl={canvasSettings.gl}
-          camera={cameraSettings}
-        >
-          
-          {/* Optimized conditional lighting */}
-          {isMobile ? (
-            // Ultra-lightweight mobile lighting - 2 lights only
-            <>
-              <ambientLight intensity={2.8} color='#f4d9b3'/>
-              <directionalLight 
-                position={[5, 5, 5]} 
-                intensity={1.8}
-                color="#ffe4c4"
-              />
-            </>
-          ) : isTablet ? (
-            // Medium tablet lighting - 3 lights
-            <>
-              <ambientLight intensity={2.2} color='#f4d9b3'/>
-              <directionalLight 
-                position={[5, 5, 5]} 
-                intensity={2}
-                color="#ffe4c4"
-              />
-              <pointLight
-                position={[0, -3, 3]}
-                intensity={1}
-                color="#ffd89b"
-              />
-            </>
-          ) : (
-            // Full desktop lighting - 4 lights
-            <>
-              <ambientLight intensity={1.7} color='#f4d9b3'/>
-              <directionalLight 
-                position={[5, 5, 5]} 
-                intensity={2}
-                color="#ffe4c4"
-                castShadow
-              />
-              <pointLight
-                position={[0, -3, 3]}
-                intensity={1.2} 
-                color="#ffd89b"
-              />
-              <pointLight
-                position={[-5, -2, 2]}
-                intensity={0.8} 
-                color="#ffcf8e" 
-              />
-            </>
-          )}
+    <section
+      id="Home"
+      ref={sectionRef}
+      style={{
+        fontFamily: "'IBM Plex Mono', monospace",
+        minHeight: "100svh",
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400&display=swap');
+        @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:.15} }
+        @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+      `}</style>
 
-          <Float 
-            speed={isMobile ? 0.5 : 0.7}
-            rotationIntensity={isMobile ? 0.3 : 0.5}
-            floatIntensity={isMobile ? 0.3 : 0.5}
-          >
-            <Planet 
-              scale={planetSettings.scale}
-              position={planetSettings.position} 
-            />
-          </Float>
-          
-          {/* Simplified environment for mobile */}
-          {isMobile ? (
-            <Environment resolution={128} preset="sunset" />
-          ) : (
-            <Environment resolution={isTablet ? 256 : 512}>
-              <group rotation={[Math.PI/3, 4, 1]}>
-                <Lightformer 
-                  form={'circle'} 
-                  intensity={2}
-                  color="#ffe8cc"
-                  position={[0, 5, -8]} 
-                  scale={15}
-                />
-                <Lightformer 
-                  form={'circle'} 
-                  intensity={1.5}
-                  color="#ffd89b"
-                  position={[8, 3, -5]} 
-                  scale={12}
-                />
-                <Lightformer 
-                  form={'rect'} 
-                  intensity={1.8}
-                  color="#f4d9b3"
-                  position={[0, -4, -3]} 
-                  scale={20}
-                />
-                <Lightformer 
-                  form={'rect'} 
-                  intensity={1.2}
-                  color="#ffe4c4"
-                  position={[-8, 0, 3]} 
-                  scale={18}
-                />
-              </group>
-            </Environment>
-          )}
-        </Canvas>
-      </figure>
+      {/* ── Top bar ── */}
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "18px 22px", borderBottom: "1px solid rgba(0,0,0,0.07)",
+        position: "relative", zIndex: 10,
+      }}>
+        <span style={{ fontSize: "8px", letterSpacing: ".28em", textTransform: "uppercase", color: "rgba(0,0,0,0.28)" }}>
+          Fuoseigha Darwin
+        </span>
+        <span style={{
+          display: "inline-flex", alignItems: "center", gap: "6px",
+          fontSize: "8px", letterSpacing: ".18em", textTransform: "uppercase",
+          color: "rgba(0,0,0,0.4)", border: "1px solid rgba(0,0,0,0.1)", padding: "4px 10px",
+        }}>
+          <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#22c55e", animation: "blink 2.4s ease-in-out infinite" }} />
+          Available
+        </span>
+      </div>
+
+      {/* ── Giant name block ── */}
+      <div style={{
+        padding: "20px 22px 0", borderBottom: "1px solid rgba(0,0,0,0.07)",
+        position: "relative", zIndex: 5, overflow: "hidden",
+      }}>
+        <div style={{ fontSize: "8px", letterSpacing: ".36em", textTransform: "uppercase", color: "rgba(0,0,0,0.28)", marginBottom: "6px" }}>
+          404 No Bugs Found!
+        </div>
+        {/* Each letter is a child span so GSAP can stagger them */}
+        <h1
+          ref={nameRef}
+          style={{
+            fontFamily: "'Bebas Neue', sans-serif",
+            fontSize: "clamp(88px, 26vw, 148px)",
+            lineHeight: 0.84, letterSpacing: ".01em",
+            color: "rgba(0,0,0,0.87)", margin: "0 0 16px",
+            textTransform: "uppercase",
+            display: "flex",
+          }}
+        >
+          {"DARWIN".split("").map((letter, i) => (
+            <span key={i} style={{ display: "inline-block" }}>{letter}</span>
+          ))}
+        </h1>
+      </div>
+
+      {/* ── Yellow ticker ── */}
+      <div style={{
+        background: "#e5ff47", padding: "8px 0", overflow: "hidden",
+        whiteSpace: "nowrap", flexShrink: 0, zIndex: 5,
+      }}>
+        <div style={{ display: "inline-flex", animation: "ticker 16s linear infinite" }}>
+          {Array(10).fill("Premium Websites · Mobile Apps · Results-Driven · ").map((t, i) => (
+            <span key={i} style={{
+              fontFamily: "'IBM Plex Mono', monospace", fontSize: "8px",
+              letterSpacing: ".2em", textTransform: "uppercase", color: "#000", paddingRight: "28px",
+            }}>{t}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Middle ── */}
+      <div ref={restRef} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+
+        <div style={{
+          width: "100%", height: "260px",
+          borderBottom: "1px solid rgba(0,0,0,0.07)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          overflow: "hidden", position: "relative",
+        }}>
+          <div style={{ width: "240px", height: "240px" }}>
+            <FloatingShape />
+          </div>
+          <div style={{
+            position: "absolute", bottom: "10px", right: "14px",
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: "7px", letterSpacing: ".2em", textTransform: "uppercase",
+            color: "rgba(0,0,0,0.18)",
+          }}>
+            3JS / WEBGL
+          </div>
+        </div>
+
+        <div style={{
+          padding: "20px 22px", display: "flex", flexDirection: "column",
+          gap: "16px", borderBottom: "1px solid rgba(0,0,0,0.07)",
+        }}>
+          <p style={{
+            fontSize: "9px", lineHeight: 1.9, letterSpacing: ".05em",
+            textTransform: "uppercase", fontWeight: 300,
+            color: "rgba(0,0,0,0.45)", margin: 0,
+          }}>
+            I help brands & startups gain an unfair advantage through premium digital products
+          </p>
+          <div>
+            <p style={{ fontSize: "8px", letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(0,0,0,0.2)", margin: "0 0 4px", lineHeight: 1.8 }}>
+              <span style={{ color: "rgba(0,0,0,0.08)" }}>// </span>Python · Node · Go · React
+            </p>
+            <p style={{ fontSize: "8px", letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(0,0,0,0.2)", margin: 0, lineHeight: 1.8 }}>
+              <span style={{ color: "rgba(0,0,0,0.08)" }}>// </span>Next.js · Flutter · Django
+            </p>
+          </div>
+          <span style={{
+            fontFamily: "'Bebas Neue', sans-serif", fontSize: "42px",
+            color: "rgba(0,0,0,0.05)", letterSpacing: ".06em",
+            lineHeight: 1, userSelect: "none", alignSelf: "flex-end",
+          }}>
+            {currentYear}
+          </span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+          <a href="/darwin_cv.pdf" download style={{
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: "9px", letterSpacing: ".16em", textTransform: "uppercase",
+            padding: "16px 10px", background: "#e5ff47", color: "#000",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: "7px",
+            textDecoration: "none", borderRight: "1px solid rgba(0,0,0,0.1)",
+          }}>
+            <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="7" y1="1" x2="7" y2="9" /><polyline points="4,6 7,9 10,6" />
+              <path d="M1 11v1a1 1 0 001 1h10a1 1 0 001-1v-1" />
+            </svg>
+            Download CV
+          </a>
+          <a href="#Projects" style={{
+            fontFamily: "'IBM Plex Mono', monospace",
+            fontSize: "9px", letterSpacing: ".16em", textTransform: "uppercase",
+            padding: "16px 10px", background: "transparent", color: "rgba(0,0,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: "7px",
+            textDecoration: "none",
+          }}>
+            <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 7s2-4 6-4 6 4 6 4-2 4-6 4-6-4-6-4z" /><circle cx="7" cy="7" r="1.5" />
+            </svg>
+            View Work ↓
+          </a>
+        </div>
+
+      </div>
     </section>
   )
+}
+
+/* ─────────────────────────────────────────────────────────
+   DESKTOP HERO
+───────────────────────────────────────────────────────── */
+const DesktopHero = () => {
+  const sectionRef  = useRef(null)
+  const topBarRef   = useRef(null)
+  const eyebrowRef  = useRef(null)
+  const nameWrapRef = useRef(null)
+  const nameRef     = useRef(null)
+  const dividerRef  = useRef(null)
+  const taglineRef  = useRef(null)
+  const bottomRef   = useRef(null)
+  const shapeRef    = useRef(null)
+
+  useGSAP(() => {
+    if (!sectionRef.current) return
+    const tl = gsap.timeline({ defaults: { ease: "power4.out" } })
+    tl.from(topBarRef.current,  { y: -20, opacity: 0, duration: 0.5, ease: "power2.out" })
+      .from(eyebrowRef.current, { y: 20, opacity: 0, duration: 0.6 }, "-=0.1")
+      // Each letter of DARWIN slides up + fades in, staggered
+      .from(nameRef.current.children, {
+        y: 50,
+        opacity: 0,
+        stagger: 0.07,
+        duration: 0.9,
+        ease: "power3.out",
+      }, "-=0.3")
+      .from(dividerRef.current, { scaleX: 0, transformOrigin: "left center", duration: 0.8, ease: "power3.out" }, "-=0.4")
+      .from(taglineRef.current, { y: 28, opacity: 0, duration: 0.7 }, "-=0.5")
+      .from(bottomRef.current.children, { y: 18, opacity: 0, stagger: 0.08, duration: 0.6 }, "-=0.4")
+      .from(shapeRef.current, { opacity: 0, scale: 0.88, duration: 1.0, ease: "power2.out" }, "-=0.8")
+    return () => tl.kill()
+  }, { scope: sectionRef })
+
+  return (
+    <section
+      id="Home"
+      ref={sectionRef}
+      style={{
+        position: "relative", minHeight: "100svh", display: "flex",
+        flexDirection: "column", justifyContent: "space-between",
+        overflow: "hidden", fontFamily: "'IBM Plex Mono', monospace", background: "#f0ede6",
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400&display=swap');
+        @keyframes blink       { 0%,100%{opacity:1} 50%{opacity:.2} }
+        @keyframes scrollSlide { 0%{left:-100%} 50%{left:0} 100%{left:100%} }
+      `}</style>
+
+      <ParticlesBg />
+
+      {/* Side label */}
+      <div style={{
+        position: "absolute", right: "52px", top: "50%", transform: "translateY(-50%)",
+        zIndex: 10, writingMode: "vertical-rl", fontSize: "8px", letterSpacing: ".22em",
+        textTransform: "uppercase", color: "rgba(0,0,0,0.18)",
+        display: "flex", flexDirection: "column", alignItems: "center", gap: "14px", pointerEvents: "none",
+      }}>
+        <span style={{ display: "block", width: "1px", height: "48px", background: "rgba(0,0,0,0.12)" }} />
+        Scroll to explore
+        <span style={{ display: "block", width: "1px", height: "48px", background: "rgba(0,0,0,0.12)" }} />
+      </div>
+
+      {/* Scroll hint */}
+      <div style={{
+        position: "absolute", bottom: "44px", left: "52px", zIndex: 10,
+        display: "flex", alignItems: "center", gap: "10px",
+        fontSize: "8px", letterSpacing: ".26em", textTransform: "uppercase",
+        color: "rgba(0,0,0,0.2)", pointerEvents: "none",
+      }}>
+        <div style={{ width: "36px", height: "1px", background: "rgba(0,0,0,0.14)", position: "relative", overflow: "hidden" }}>
+          <span style={{
+            position: "absolute", top: 0, left: "-100%", width: "100%", height: "100%",
+            background: "rgba(0,0,0,0.45)", animation: "scrollSlide 2s 1.5s ease-in-out infinite",
+          }} />
+        </div>
+        Scroll
+      </div>
+
+      {/* 3JS Shape */}
+      <div
+        ref={shapeRef}
+        style={{
+          position: "absolute",
+          left: "50%", top: "50%",
+          transform: "translate(-50%, -50%)",
+          marginLeft: "25%",
+          width: "clamp(280px, 28vw, 480px)",
+          height: "clamp(280px, 28vw, 480px)",
+          zIndex: 3, pointerEvents: "none",
+        }}
+      >
+        <FloatingShape />
+      </div>
+
+      {/* Top bar */}
+      <div ref={topBarRef} style={{
+        position: "relative", zIndex: 10, display: "flex", justifyContent: "space-between",
+        alignItems: "center", padding: "22px clamp(24px, 5vw, 52px)",
+        borderBottom: "1px solid rgba(0,0,0,0.07)",
+      }}>
+        <span style={{ fontSize: "9px", letterSpacing: ".28em", textTransform: "uppercase", color: "rgba(0,0,0,0.3)" }}>
+          Fuoseigha Darwin
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          <span style={{ fontSize: "9px", letterSpacing: ".16em", color: "rgba(0,0,0,0.18)" }}>FD / {currentYear}</span>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: "7px", fontSize: "9px",
+            letterSpacing: ".18em", textTransform: "uppercase", color: "rgba(0,0,0,0.42)",
+            border: "1px solid rgba(0,0,0,0.1)", padding: "5px 13px",
+          }}>
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#22c55e", flexShrink: 0, animation: "blink 2.4s ease-in-out infinite" }} />
+            Available
+          </span>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div style={{ position: "relative", zIndex: 5 }}>
+        <div ref={eyebrowRef} style={{ padding: "0 clamp(24px, 5vw, 52px)", marginBottom: "10px" }}>
+          <span style={{ fontSize: "11px", fontWeight: 300, letterSpacing: ".44em", textTransform: "uppercase", color: "rgba(0,0,0,0.32)" }}>
+            404 No Bugs Found!
+          </span>
+        </div>
+        <div ref={nameWrapRef} style={{ overflow: "hidden", padding: "0 clamp(24px, 5vw, 48px)", marginBottom: "clamp(16px, 3vh, 28px)" }}>
+          {/* Each letter is a child span so GSAP can stagger them individually */}
+          <h1
+            ref={nameRef}
+            style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: "clamp(88px, 18vw, 200px)",
+              lineHeight: 0.86, letterSpacing: ".01em",
+              color: "rgba(0,0,0,0.87)", margin: 0,
+              textTransform: "uppercase",
+              display: "flex",
+            }}
+          >
+            {"DARWIN".split("").map((letter, i) => (
+              <span key={i} style={{ display: "inline-block" }}>{letter}</span>
+            ))}
+          </h1>
+        </div>
+        <div ref={dividerRef} style={{ margin: "0 clamp(24px, 5vw, 52px) clamp(14px, 2.5vh, 22px)", height: "1px", background: "rgba(0,0,0,0.08)" }} />
+        <div ref={taglineRef} style={{ padding: "0 clamp(24px, 5vw, 52px)", display: "flex", justifyContent: "flex-end", marginBottom: "clamp(20px, 3.5vh, 32px)" }}>
+          <p style={{ fontSize: "clamp(10px, 1.1vw, 13px)", lineHeight: 1.9, letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 300, color: "rgba(0,0,0,0.4)", margin: 0, textAlign: "right", maxWidth: "440px" }}>
+            I help brands and startups gain an unfair advantage<br />through premium results-driven websites and mobile apps
+          </p>
+        </div>
+        <div ref={bottomRef} style={{
+          padding: "18px clamp(24px, 5vw, 52px) clamp(28px, 5vh, 52px)",
+          borderTop: "1px solid rgba(0,0,0,0.07)", display: "flex",
+          alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "16px",
+        }}>
+          <div>
+            <p style={{ fontSize: "9px", letterSpacing: ".14em", textTransform: "uppercase", color: "rgba(0,0,0,0.22)", margin: "0 0 5px", lineHeight: 1.7 }}>
+              <span style={{ color: "rgba(0,0,0,0.1)" }}>// </span>Python · Node.js · Go · React · Flutter
+            </p>
+            <p style={{ fontSize: "9px", letterSpacing: ".14em", textTransform: "uppercase", color: "rgba(0,0,0,0.22)", margin: 0, lineHeight: 1.7 }}>
+              <span style={{ color: "rgba(0,0,0,0.1)" }}>// </span>Next.js · TypeScript · Django · Vite
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <a href="/darwin_cv.pdf" download style={{
+              fontFamily: "'IBM Plex Mono', monospace", fontSize: "10px", letterSpacing: ".18em",
+              textTransform: "uppercase", padding: "12px 26px", background: "#e5ff47", color: "#000",
+              display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none",
+              transition: "opacity 0.2s", flexShrink: 0,
+            }}
+              onMouseEnter={e => e.currentTarget.style.opacity = ".8"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            >
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="7" y1="1" x2="7" y2="9" /><polyline points="4,6 7,9 10,6" /><path d="M1 11v1a1 1 0 001 1h10a1 1 0 001-1v-1" />
+              </svg>
+              Download CV
+            </a>
+            <a href="#Projects" style={{
+              fontFamily: "'IBM Plex Mono', monospace", fontSize: "10px", letterSpacing: ".18em",
+              textTransform: "uppercase", padding: "12px 26px", background: "transparent", color: "rgba(0,0,0,0.45)",
+              display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none",
+              border: "1px solid rgba(0,0,0,0.18)", transition: "all 0.2s", flexShrink: 0,
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,0,0,0.04)"; e.currentTarget.style.borderColor = "rgba(0,0,0,0.32)"; e.currentTarget.style.color = "rgba(0,0,0,0.78)" }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(0,0,0,0.18)"; e.currentTarget.style.color = "rgba(0,0,0,0.45)" }}
+            >
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 7s2-4 6-4 6 4 6 4-2 4-6 4-6-4-6-4z" /><circle cx="7" cy="7" r="1.5" />
+              </svg>
+              View Work ↓
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────
+   Hero — routes mobile vs desktop
+───────────────────────────────────────────────────────── */
+const Hero = () => {
+  const isMobile = useMediaQuery({ maxWidth: 853 })
+  return isMobile ? <MobileHero /> : <DesktopHero />
 }
 
 export default Hero

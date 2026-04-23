@@ -12,7 +12,7 @@ const EMAIL = "fuoseighadarwin@gmail.com";
 const EJS_SERVICE_ID  = import.meta.env.VITE_EMAILJS_SERVICE_ID;
 const EJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
 const EJS_PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
+const currentYear = new Date().getFullYear();
 /* ─── SplitHeader ─── */
 const SplitHeader = memo(({ text, style, delay = 0, triggerRef }) => {
   const wrapRef = useRef(null);
@@ -181,7 +181,7 @@ const Contact = memo(() => {
       {/* ── Top bar ── */}
       <div className="flex justify-between items-center px-5 pt-5 pb-4 border-b border-white/[0.07] lg:px-16">
         <span className="text-[10px] tracking-[.2em] uppercase text-white/25">Contact — Info</span>
-        <span className="text-[10px] text-white/15 tracking-[.1em]">FD / 2025</span>
+        <span className="text-[10px] text-white/15 tracking-[.1em]">FD / {currentYear}</span>
       </div>
 
       {/* ── Hero heading — split animated ── */}
@@ -289,8 +289,8 @@ const Contact = memo(() => {
             <div style={{ fontSize: "8px", letterSpacing: ".2em", textTransform: "uppercase", color: "rgba(255,255,255,0.18)", marginBottom: "14px" }}>Find me on</div>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {[
-                { label: "GitHub",   href: "https://github.com" },
-                { label: "LinkedIn", href: "https://linkedin.com" },
+                { label: "GitHub",   href: "https://github.com/fDarwin626" },
+                { label: "LinkedIn", href: "https://www.linkedin.com/in/fuoseigha-darwin-b29168326/" },
                 { label: "WhatsApp", href: WHATSAPP_URL },
               ].map((link) => (
                 <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer" className="ct-link">

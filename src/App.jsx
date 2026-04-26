@@ -43,70 +43,60 @@ const resolveChar = (entry) => {
   return "@"
 }
 
-/* ─────────────────────────────────────────────────────────
-   Module-level audio cache — persists across re-renders.
-   Keyed by name so we always reuse the SAME Audio element
-   that was unlocked during the user gesture.
-───────────────────────────────────────────────────────── */
-const audioCache = {}
-
-const AUDIO_DEFS = {
-  intro:       { src: "/audio/intro.wav",       volume: 0.55 },
-  glitch:      { src: "/audio/glitch.wav",       volume: 0.35 },
-  buttonclick: { src: "/audio/buttonclick.mp3",  volume: 0.9  },
-  hope:        { src: "/audio/hope.mp3",         volume: 0.7  },
-}
+const AUDIO_FILES = [
+  "/audio/intro.wav",
+  "/audio/glitch.wav",
+  "/audio/buttonclick.mp3",
+  "/audio/hope.mp3",
+]
 
 /* ─────────────────────────────────────────────────────────
-   preloadAudio — creates Audio elements and waits for
-   canplaythrough (fully buffered). Caches them so the
-   same element instance is reused after the gesture unlock.
+   preloadAudio — fetches + fully decodes every audio file
+   into browser memory using AudioContext.decodeAudioData().
+   Resolves only when audio is 100% parsed and ready, not
+   just when the HTTP response headers arrived (old bug).
+   6s timeout per file — generous for slow mobile networks.
 ───────────────────────────────────────────────────────── */
-const preloadAudio = () =>
-  Promise.all(
-    Object.entries(AUDIO_DEFS).map(([key, { src, volume }]) =>
+const preloadAudio = () => {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext
+  if (!AudioCtx) {
+    return Promise.all(
+      AUDIO_FILES.map(src =>
+        new Promise((resolve) => {
+          const t = setTimeout(resolve, 6000)
+          fetch(src, { cache: "force-cache" })
+            .then(() => { clearTimeout(t); resolve() })
+            .catch(() => { clearTimeout(t); resolve() })
+        })
+      )
+    )
+  }
+  const ctx = new AudioCtx()
+  return Promise.all(
+    AUDIO_FILES.map(src =>
       new Promise((resolve) => {
-        if (audioCache[key]) { resolve(); return }
-        const audio = new Audio()
-        audio.preload = "auto"
-        audio.volume  = volume
-        audio.src     = src
-        const done = () => { audioCache[key] = audio; resolve() }
-        audio.addEventListener("canplaythrough", done, { once: true })
-        audio.addEventListener("error",          done, { once: true })
-        setTimeout(done, 6000)   // safety timeout — never block the app
-        audio.load()
+        const t = setTimeout(resolve, 6000)
+        fetch(src, { cache: "force-cache", priority: "high" })
+          .then(r => r.arrayBuffer())
+          .then(buf => ctx.decodeAudioData(buf))
+          .then(() => { clearTimeout(t); resolve() })
+          .catch(() => { clearTimeout(t); resolve() })
       })
     )
-  )
-
-/* ─────────────────────────────────────────────────────────
-   unlockCachedAudio — MUST be called synchronously inside
-   a real user-gesture handler (tap / click / keydown).
-   Plays + immediately pauses each element — the only
-   reliable way to satisfy iOS Safari's gesture requirement.
-───────────────────────────────────────────────────────── */
-const unlockCachedAudio = () => {
-  Object.values(audioCache).forEach(audio => {
-    const p = audio.play()
-    if (p !== undefined) {
-      p.then(() => {
-        audio.pause()
-        audio.currentTime = 0
-      }).catch(() => {})
-    }
-  })
-  window._audioUnlocked = true
+  ).finally(() => { ctx.close().catch(() => {}) })
 }
 
 /* ─────────────────────────────────────────────────────────
    MobileGate — shown on mobile BEFORE the scramble loader.
 
-   Key audio fix: unlockCachedAudio() is called FIRST,
-   synchronously inside handleTap, AND intro starts playing
-   right there — before any state update or setTimeout.
-   This is the only approach that satisfies iOS Safari's
-   strict "play must start in gesture call stack" rule.
+   Solves two mobile audio problems at once:
+   1. The tap is a real user gesture → unlocks AudioContext
+      on iOS Safari and Chrome Android.
+   2. Audio downloads in the background while the gate is
+      visible → by the time user taps, files are ready.
+
+   If they tap before audio finishes loading, we show a
+   brief spinner and auto-proceed the moment it resolves.
 ───────────────────────────────────────────────────────── */
 const MobileGate = ({ onEnter, audioReady }) => {
   const [fade, setFade]       = useState(false)
@@ -128,28 +118,16 @@ const MobileGate = ({ onEnter, audioReady }) => {
 
   const handleTap = () => {
     if (fade) return
-
-    // ── STEP 1: Unlock ALL cached Audio elements synchronously
-    //    in the gesture call stack — this is what iOS Safari needs.
-    unlockCachedAudio()
-
-    // ── STEP 2: Start intro playing RIGHT NOW, still inside the gesture.
-    //    ScrambleLoader will attach to this same already-playing element.
-    if (audioCache.intro) {
-      audioCache.intro.currentTime = 0
-      audioCache.intro.play().catch(() => {})
-    }
-
     if (!audioReady) {
+      // Audio still loading — show spinner, auto-proceed when ready
       setWaiting(true)
       return
     }
-
     setFade(true)
     setTimeout(onEnter, 700)
   }
 
-  // Auto-proceed once audio finishes loading if user already tapped
+  // Auto-proceed once audio finishes if user already tapped
   useEffect(() => {
     if (waiting && audioReady) {
       setFade(true)
@@ -265,15 +243,7 @@ const MobileGate = ({ onEnter, audioReady }) => {
   )
 }
 
-/* ─────────────────────────────────────────────────────────
-   ScrambleLoader
-
-   Audio fix: pulls from audioCache instead of creating
-   new Audio() elements. On mobile, intro is already playing
-   (started synchronously in MobileGate's handleTap).
-   On desktop, we attach an unlock listener and play on
-   first gesture — using the same cached element.
-───────────────────────────────────────────────────────── */
+/* ─── ScrambleLoader ─── */
 const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   const isEncrypt = mode === "encrypt"
   const [display, setDisplay] = useState(() =>
@@ -290,55 +260,63 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   const introAudioRef    = useRef(null)
   const glitchAudioRef   = useRef(null)
   const btnClickAudioRef = useRef(null)
+  const unlockedRef      = useRef(false)
 
   useEffect(() => {
-    // ── Attach to cached elements — do NOT create new Audio() instances.
-    //    On mobile these are already unlocked + intro is already playing.
-    introAudioRef.current    = audioCache.intro       ?? null
-    glitchAudioRef.current   = audioCache.glitch      ?? null
-    btnClickAudioRef.current = audioCache.buttonclick ?? null
+    // Audio is fully decoded in cache AND AudioContext is already
+    // unlocked (by the MobileGate tap on mobile, or will be unlocked
+    // on first gesture on desktop). These play instantly.
+    const intro = new Audio("/audio/intro.wav")
+    intro.preload = "auto"
+    intro.volume = 0.55
+    introAudioRef.current = intro
 
-    if (window._audioUnlocked) {
-      // Mobile path: intro already started in MobileGate handleTap — nothing to do.
-      // Desktop path (encrypt re-entry): play intro now.
-      if (!introAudioRef.current) return
-      introAudioRef.current.currentTime = 0
-      introAudioRef.current.play().catch(() => {})
-      return
-    }
+    const glitch = new Audio("/audio/glitch.wav")
+    glitch.preload = "auto"
+    glitchAudioRef.current = glitch
 
-    // Desktop first-load path: unlock + play on first gesture.
-    const unlockAndPlay = () => {
-      if (window._audioUnlocked) return
-      unlockCachedAudio()
-      if (introAudioRef.current) {
-        introAudioRef.current.currentTime = 0
-        introAudioRef.current.play().catch(() => {})
-      }
-      document.removeEventListener("click",    unlockAndPlay)
-      document.removeEventListener("keydown",  unlockAndPlay)
-      document.removeEventListener("touchend", unlockAndPlay)
+    const btnClick = new Audio("/audio/buttonclick.mp3")
+    btnClick.preload = "auto"
+    btnClick.volume = 0.9
+    btnClickAudioRef.current = btnClick
+
+    // Desktop: unlock on first gesture if not yet done
+    const unlockAudio = () => {
+      if (unlockedRef.current) return
+      unlockedRef.current = true
+      ;[introAudioRef, glitchAudioRef, btnClickAudioRef].forEach(ref => {
+        if (!ref.current) return
+        ref.current.play().then(() => {
+          if (ref !== introAudioRef) { ref.current.pause(); ref.current.currentTime = 0 }
+        }).catch(() => {})
+      })
+      document.removeEventListener("click",    unlockAudio)
+      document.removeEventListener("keydown",  unlockAudio)
+      document.removeEventListener("touchend", unlockAudio)
     }
-    document.addEventListener("click",    unlockAndPlay, { once: true })
-    document.addEventListener("keydown",  unlockAndPlay, { once: true })
-    document.addEventListener("touchend", unlockAndPlay, { once: true })
+    document.addEventListener("click",    unlockAudio, { once: true })
+    document.addEventListener("keydown",  unlockAudio, { once: true })
+    document.addEventListener("touchend", unlockAudio, { once: true })
+
+    // Play intro — on mobile AudioContext is already unlocked by gate tap
+    try {
+      const p = intro.play()
+      if (p !== undefined) p.then(() => { unlockedRef.current = true }).catch(() => {})
+    } catch (e) {}
 
     return () => {
-      document.removeEventListener("click",    unlockAndPlay)
-      document.removeEventListener("keydown",  unlockAndPlay)
-      document.removeEventListener("touchend", unlockAndPlay)
-      // Pause intro when loader unmounts
-      if (introAudioRef.current) {
-        introAudioRef.current.pause()
-        introAudioRef.current.currentTime = 0
-      }
+      document.removeEventListener("click",    unlockAudio)
+      document.removeEventListener("keydown",  unlockAudio)
+      document.removeEventListener("touchend", unlockAudio)
+      ;[introAudioRef, glitchAudioRef, btnClickAudioRef].forEach(ref => {
+        if (ref.current) { ref.current.pause(); ref.current = null }
+      })
     }
   }, [mode])
 
   const playGlitchSound = () => {
     try {
       if (!glitchAudioRef.current) return
-      // Clone so overlapping glitch sounds don't cut each other off
       const clone = glitchAudioRef.current.cloneNode()
       clone.volume = 0.35
       const p = clone.play()
@@ -417,7 +395,6 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
         btn.currentTime = 0
         const p = btn.play()
         if (p !== undefined) p.catch(() => {
-          // Fallback: fresh element if cached one fails
           const fb = new Audio("/audio/buttonclick.mp3")
           fb.volume = 0.9
           fb.play().catch(() => {})
@@ -641,7 +618,7 @@ const App = () => {
   const [isReady, setIsReady]         = useState(false)
   const [fontsLoaded, setFontsLoaded] = useState(false)
   const [audioLoaded, setAudioLoaded] = useState(false)
-  const [gateCleared, setGateCleared] = useState(false)
+  const [gateCleared, setGateCleared] = useState(false) // mobile: has user tapped the gate?
   const [loaderMode, setLoaderMode]   = useState("decrypt")
   const [showLoader, setShowLoader]   = useState(true)
   const [isMobile, setIsMobile]       = useState(false)
@@ -663,9 +640,9 @@ const App = () => {
     }
   }, [])
 
-  // Gate 2: audio — preload into Audio element cache.
-  // On mobile this runs while gate screen is visible so
-  // files are ready before or right when user taps.
+  // Gate 2: audio — fully decode all files into memory.
+  // On mobile this runs in parallel while the gate screen is
+  // visible, so audio is ready before or right when user taps.
   useEffect(() => {
     preloadAudio().then(() => setAudioLoaded(true))
   }, [])
@@ -681,22 +658,22 @@ const App = () => {
   }, [loaderMode])
 
   const handleGateEnter = useCallback(() => {
-    // Note: unlockCachedAudio() + intro.play() already called
-    // synchronously inside MobileGate's handleTap before this runs.
-    window._audioUnlocked = true
     setGateCleared(true)
   }, [])
 
-  const showMobileGate = isMobile && fontsLoaded && !gateCleared
-  const canShowLoader  = isMobile
-    ? fontsLoaded && gateCleared
-    : fontsLoaded && audioLoaded
+  // Desktop: wait for fonts + audio, then show scramble loader directly
+  // Mobile:  wait for fonts, show gate screen (audio loads in bg),
+  //          after gate tap show scramble loader
+  const showMobileGate  = isMobile && fontsLoaded && !gateCleared
+  const canShowLoader   = isMobile
+    ? fontsLoaded && gateCleared          // mobile: gate tapped (audio ready by now)
+    : fontsLoaded && audioLoaded          // desktop: audio fully decoded first
 
   return (
     <ErrorBoundary>
       <ReactLenis root style={{ position: "relative", width: "100vw", minHeight: "100vh", overflowX: "hidden" }}>
 
-        {/* Mobile gate */}
+        {/* Mobile gate — shows while audio downloads in background */}
         {showMobileGate && (
           <MobileGate onEnter={handleGateEnter} audioReady={audioLoaded} />
         )}

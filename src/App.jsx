@@ -43,67 +43,98 @@ const resolveChar = (entry) => {
   return "@"
 }
 
-const AUDIO_FILES = [
-  "/audio/intro.wav",
-  "/audio/glitch.wav",
-  "/audio/buttonclick.mp3",
-  "/audio/hope.mp3",
+/* ─────────────────────────────────────────────────────────
+   Audio cache — one Audio element per file, reused so the
+   same unlocked instance is always played.
+   Glitch / buttonclick are played as short-lived clones so
+   they never loop and don't accumulate.
+───────────────────────────────────────────────────────── */
+const audioCache = {
+  intro:       null,
+  glitch:      null,
+  buttonclick: null,
+}
+
+let _audioUnlocked = false
+
+const AUDIO_DEFS = [
+  { key: "intro",       src: "/audio/intro.wav",       volume: 0.55 },
+  { key: "glitch",      src: "/audio/glitch.wav",       volume: 0.35 },
+  { key: "buttonclick", src: "/audio/buttonclick.mp3",  volume: 0.9  },
+  { key: "hope",        src: "/audio/hope.mp3",         volume: 0.7  },
 ]
 
-/* ─────────────────────────────────────────────────────────
-   preloadAudio — fetches + fully decodes every audio file
-   into browser memory using AudioContext.decodeAudioData().
-   Resolves only when audio is 100% parsed and ready, not
-   just when the HTTP response headers arrived (old bug).
-   6s timeout per file — generous for slow mobile networks.
-───────────────────────────────────────────────────────── */
-const preloadAudio = () => {
-  const AudioCtx = window.AudioContext || window.webkitAudioContext
-  if (!AudioCtx) {
-    return Promise.all(
-      AUDIO_FILES.map(src =>
-        new Promise((resolve) => {
-          const t = setTimeout(resolve, 6000)
-          fetch(src, { cache: "force-cache" })
-            .then(() => { clearTimeout(t); resolve() })
-            .catch(() => { clearTimeout(t); resolve() })
-        })
-      )
-    )
-  }
-  const ctx = new AudioCtx()
-  return Promise.all(
-    AUDIO_FILES.map(src =>
+const preloadAudio = () =>
+  Promise.all(
+    AUDIO_DEFS.map(({ key, src, volume }) =>
       new Promise((resolve) => {
-        const t = setTimeout(resolve, 6000)
-        fetch(src, { cache: "force-cache", priority: "high" })
-          .then(r => r.arrayBuffer())
-          .then(buf => ctx.decodeAudioData(buf))
-          .then(() => { clearTimeout(t); resolve() })
-          .catch(() => { clearTimeout(t); resolve() })
+        if (audioCache[key]) { resolve(); return }
+        const audio = new Audio()
+        audio.preload = "auto"
+        audio.volume  = volume
+        audio.src     = src
+        const done = () => {
+          if (key in audioCache) audioCache[key] = audio
+          resolve()
+        }
+        audio.addEventListener("canplaythrough", done, { once: true })
+        audio.addEventListener("error",          done, { once: true })
+        setTimeout(done, 6000)
+        audio.load()
       })
     )
-  ).finally(() => { ctx.close().catch(() => {}) })
+  )
+
+const playIntro = () => {
+  const a = audioCache.intro
+  if (!a) return
+  a.currentTime = 0
+  a.play().catch(() => {})
+}
+
+const stopIntro = () => {
+  const a = audioCache.intro
+  if (!a) return
+  a.pause()
+  a.currentTime = 0
+}
+
+/* Clone-based playback — each call creates a fresh short-lived element.
+   The clone is nulled out on "ended" so it gets garbage collected.
+   There is NO loop, NO persistent reference. */
+const playGlitch = () => {
+  if (!_audioUnlocked) return
+  const src = audioCache.glitch
+  if (!src) return
+  try {
+    const clone = src.cloneNode()
+    clone.volume = 0.35
+    clone.loop   = false
+    clone.play().catch(() => {})
+    clone.addEventListener("ended", () => { clone.src = "" }, { once: true })
+  } catch (_) {}
+}
+
+const playButtonClick = () => {
+  const src = audioCache.buttonclick
+  if (!src) return
+  try {
+    const clone = src.cloneNode()
+    clone.volume = 0.9
+    clone.loop   = false
+    clone.play().catch(() => {})
+    clone.addEventListener("ended", () => { clone.src = "" }, { once: true })
+  } catch (_) {}
 }
 
 /* ─────────────────────────────────────────────────────────
-   MobileGate — shown on mobile BEFORE the scramble loader.
-
-   Solves two mobile audio problems at once:
-   1. The tap is a real user gesture → unlocks AudioContext
-      on iOS Safari and Chrome Android.
-   2. Audio downloads in the background while the gate is
-      visible → by the time user taps, files are ready.
-
-   If they tap before audio finishes loading, we show a
-   brief spinner and auto-proceed the moment it resolves.
+   MobileGate
 ───────────────────────────────────────────────────────── */
 const MobileGate = ({ onEnter, audioReady }) => {
   const [fade, setFade]       = useState(false)
   const [glitch, setGlitch]   = useState(false)
   const [waiting, setWaiting] = useState(false)
 
-  // Occasional glitch flicker on the lock icon
   useEffect(() => {
     const schedule = () => {
       const delay = 1800 + Math.random() * 2400
@@ -118,8 +149,11 @@ const MobileGate = ({ onEnter, audioReady }) => {
 
   const handleTap = () => {
     if (fade) return
+    // Unlock + play intro synchronously inside the gesture — iOS Safari requirement
+    _audioUnlocked = true
+    playIntro()
+
     if (!audioReady) {
-      // Audio still loading — show spinner, auto-proceed when ready
       setWaiting(true)
       return
     }
@@ -127,7 +161,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
     setTimeout(onEnter, 700)
   }
 
-  // Auto-proceed once audio finishes if user already tapped
   useEffect(() => {
     if (waiting && audioReady) {
       setFade(true)
@@ -151,20 +184,16 @@ const MobileGate = ({ onEnter, audioReady }) => {
         @keyframes mgSpin   { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
       `}</style>
 
-      {/* Scanline overlay */}
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
         background: "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.012) 2px,rgba(255,255,255,0.012) 4px)",
       }} />
 
       <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: "24px", animation: "mgFadeUp 0.8s ease both" }}>
-
-        {/* Name */}
         <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "9px", letterSpacing: ".38em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)" }}>
           Fuoseigha Darwin
         </div>
 
-        {/* Lock icon */}
         <div style={{
           width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center",
           border: `1px solid ${glitch ? "#e5ff47" : "rgba(255,255,255,0.12)"}`,
@@ -180,7 +209,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
           </svg>
         </div>
 
-        {/* Headline */}
         <div style={{ textAlign: "center" }}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(28px, 8vw, 48px)", letterSpacing: ".12em", color: "#fff", lineHeight: 1.1 }}>
             SITE LOCKED
@@ -190,7 +218,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
           </div>
         </div>
 
-        {/* Tap button */}
         <button
           onClick={handleTap}
           disabled={fade}
@@ -225,7 +252,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
           )}
         </button>
 
-        {/* Status indicator */}
         {!audioReady && !waiting && (
           <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.15)" }}>
             <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#e5ff47", animation: "mgPulse 1.2s ease-in-out infinite", display: "inline-block" }} />
@@ -243,101 +269,78 @@ const MobileGate = ({ onEnter, audioReady }) => {
   )
 }
 
-/* ─── ScrambleLoader ─── */
+/* ─────────────────────────────────────────────────────────
+   ScrambleLoader
+───────────────────────────────────────────────────────── */
 const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   const isEncrypt = mode === "encrypt"
+
   const [display, setDisplay] = useState(() =>
     Array(TARGET.length).fill(null).map(() => ({ entry: { type: "text", char: "@" }, glitch: false }))
   )
-  const [locked, setLocked]     = useState(() => Array(TARGET.length).fill(false))
-  const [lockedIcons]           = useState(() => Array(TARGET.length).fill(null).map(() => rand(ICON_DEFS).key))
-  const [showBtn, setShowBtn]   = useState(false)
-  const [fade, setFade]         = useState(false)
-  const lockedRef               = useRef(Array(TARGET.length).fill(false))
-  const glitchRef               = useRef(Array(TARGET.length).fill(false))
-  const lockedCount             = useRef(0)
+  const [locked, setLocked]   = useState(() => Array(TARGET.length).fill(false))
+  const [lockedIcons]         = useState(() => Array(TARGET.length).fill(null).map(() => rand(ICON_DEFS).key))
+  const [showBtn, setShowBtn] = useState(false)
+  const [fade, setFade]       = useState(false)
 
-  const introAudioRef    = useRef(null)
-  const glitchAudioRef   = useRef(null)
-  const btnClickAudioRef = useRef(null)
-  const unlockedRef      = useRef(false)
+  const lockedRef      = useRef(Array(TARGET.length).fill(false))
+  const glitchRef      = useRef(Array(TARGET.length).fill(false))
+  const lockedCount    = useRef(0)
+  const glitchTimer    = useRef(null)
+  const isMounted      = useRef(true)
 
+  // ── Audio: desktop unlocks on first click; mobile already unlocked by gate tap
   useEffect(() => {
-    // Audio is fully decoded in cache AND AudioContext is already
-    // unlocked (by the MobileGate tap on mobile, or will be unlocked
-    // on first gesture on desktop). These play instantly.
-    const intro = new Audio("/audio/intro.wav")
-    intro.preload = "auto"
-    intro.volume = 0.55
-    introAudioRef.current = intro
+    isMounted.current = true
 
-    const glitch = new Audio("/audio/glitch.wav")
-    glitch.preload = "auto"
-    glitchAudioRef.current = glitch
-
-    const btnClick = new Audio("/audio/buttonclick.mp3")
-    btnClick.preload = "auto"
-    btnClick.volume = 0.9
-    btnClickAudioRef.current = btnClick
-
-    // Desktop: unlock on first gesture if not yet done
-    const unlockAudio = () => {
-      if (unlockedRef.current) return
-      unlockedRef.current = true
-      ;[introAudioRef, glitchAudioRef, btnClickAudioRef].forEach(ref => {
-        if (!ref.current) return
-        ref.current.play().then(() => {
-          if (ref !== introAudioRef) { ref.current.pause(); ref.current.currentTime = 0 }
-        }).catch(() => {})
-      })
-      document.removeEventListener("click",    unlockAudio)
-      document.removeEventListener("keydown",  unlockAudio)
-      document.removeEventListener("touchend", unlockAudio)
+    if (_audioUnlocked) {
+      // Already unlocked (mobile gate tap, or desktop re-entry).
+      // For the encrypt re-entry, restart intro.
+      if (mode === "encrypt") playIntro()
+      // For mobile decrypt: intro started in MobileGate.handleTap — already playing.
+    } else {
+      // Desktop first load: wait for first click to unlock + play
+      const onGesture = () => {
+        if (_audioUnlocked) return
+        _audioUnlocked = true
+        playIntro()
+      }
+      document.addEventListener("click",    onGesture, { once: true })
+      document.addEventListener("keydown",  onGesture, { once: true })
+      document.addEventListener("touchend", onGesture, { once: true })
+      return () => {
+        document.removeEventListener("click",    onGesture)
+        document.removeEventListener("keydown",  onGesture)
+        document.removeEventListener("touchend", onGesture)
+      }
     }
-    document.addEventListener("click",    unlockAudio, { once: true })
-    document.addEventListener("keydown",  unlockAudio, { once: true })
-    document.addEventListener("touchend", unlockAudio, { once: true })
-
-    // Play intro — on mobile AudioContext is already unlocked by gate tap
-    try {
-      const p = intro.play()
-      if (p !== undefined) p.then(() => { unlockedRef.current = true }).catch(() => {})
-    } catch (e) {}
 
     return () => {
-      document.removeEventListener("click",    unlockAudio)
-      document.removeEventListener("keydown",  unlockAudio)
-      document.removeEventListener("touchend", unlockAudio)
-      ;[introAudioRef, glitchAudioRef, btnClickAudioRef].forEach(ref => {
-        if (ref.current) { ref.current.pause(); ref.current = null }
-      })
+      isMounted.current = false
+      stopIntro()
     }
   }, [mode])
 
-  const playGlitchSound = () => {
-    try {
-      if (!glitchAudioRef.current) return
-      const clone = glitchAudioRef.current.cloneNode()
-      clone.volume = 0.35
-      const p = clone.play()
-      if (p !== undefined) p.catch(() => {})
-    } catch (e) {}
-  }
-
+  // ── Lock letters one by one
   useEffect(() => {
     lockedCount.current = 0
     lockedRef.current   = Array(TARGET.length).fill(false)
     glitchRef.current   = Array(TARGET.length).fill(false)
+
     TARGET.split("").forEach((_, i) => {
       setTimeout(() => {
+        if (!isMounted.current) return
         lockedRef.current[i] = true
         setLocked(prev => { const n = [...prev]; n[i] = true; return n })
         lockedCount.current += 1
-        if (lockedCount.current === TARGET.length) setTimeout(() => setShowBtn(true), 600)
+        if (lockedCount.current === TARGET.length) {
+          setTimeout(() => { if (isMounted.current) setShowBtn(true) }, 600)
+        }
       }, 420 + i * 220)
     })
   }, [mode])
 
+  // ── Scramble interval
   useEffect(() => {
     const id = setInterval(() => {
       setDisplay(prev => prev.map((item, i) => {
@@ -352,24 +355,38 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
     return () => clearInterval(id)
   }, [mode, isEncrypt, lockedIcons])
 
+  // ── Glitch effect — only active while showBtn is true.
+  //    `stopped` flag + clearTimeout ensure no sounds or
+  //    state updates fire after the component unmounts or
+  //    showBtn goes false.
   useEffect(() => {
     if (!showBtn) return
+
+    let stopped = false
+
     const scheduleGlitch = () => {
-      const delay = 700 + Math.random() * 1000
-      return setTimeout(() => {
+      if (stopped) return
+      glitchTimer.current = setTimeout(() => {
+        if (stopped) return
+
         const idx = Math.floor(Math.random() * TARGET.length)
         if (!lockedRef.current[idx]) { scheduleGlitch(); return }
-        playGlitchSound()
+
+        playGlitch()   // clone-based, auto-discarded — won't loop
+
         glitchRef.current[idx] = true
         setDisplay(prev => { const n = [...prev]; n[idx] = { entry: rand(POOL), glitch: true }; return n })
+
         const flickers = Math.random() > 0.4 ? 3 : 2
         let flick = 0
-        const flickInterval = setInterval(() => {
+        const flickId = setInterval(() => {
+          if (stopped) { clearInterval(flickId); return }
           flick++
           setDisplay(prev => { const n = [...prev]; n[idx] = { entry: rand(POOL), glitch: true }; return n })
           if (flick >= flickers) {
-            clearInterval(flickInterval)
+            clearInterval(flickId)
             setTimeout(() => {
+              if (stopped) return
               glitchRef.current[idx] = false
               setDisplay(prev => {
                 const n = [...prev]
@@ -378,29 +395,23 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
                   : { entry: { type: "text", char: TARGET[idx] }, glitch: false }
                 return n
               })
-              scheduleGlitch()
+              scheduleGlitch()   // schedule NEXT glitch only after this one fully resolves
             }, 140)
           }
         }, 80)
-      }, delay)
+      }, 700 + Math.random() * 1000)
     }
-    const t = scheduleGlitch()
-    return () => clearTimeout(t)
+
+    scheduleGlitch()
+
+    return () => {
+      stopped = true
+      clearTimeout(glitchTimer.current)
+    }
   }, [showBtn, isEncrypt, lockedIcons])
 
   const handleBtn = () => {
-    try {
-      const btn = btnClickAudioRef.current
-      if (btn) {
-        btn.currentTime = 0
-        const p = btn.play()
-        if (p !== undefined) p.catch(() => {
-          const fb = new Audio("/audio/buttonclick.mp3")
-          fb.volume = 0.9
-          fb.play().catch(() => {})
-        })
-      }
-    } catch (e) {}
+    playButtonClick()
     setFade(true)
     setTimeout(onDone, 900)
   }
@@ -618,7 +629,7 @@ const App = () => {
   const [isReady, setIsReady]         = useState(false)
   const [fontsLoaded, setFontsLoaded] = useState(false)
   const [audioLoaded, setAudioLoaded] = useState(false)
-  const [gateCleared, setGateCleared] = useState(false) // mobile: has user tapped the gate?
+  const [gateCleared, setGateCleared] = useState(false)
   const [loaderMode, setLoaderMode]   = useState("decrypt")
   const [showLoader, setShowLoader]   = useState(true)
   const [isMobile, setIsMobile]       = useState(false)
@@ -630,7 +641,6 @@ const App = () => {
     return () => window.removeEventListener("resize", check)
   }, [])
 
-  // Gate 1: fonts
   useEffect(() => {
     const onReady = () => document.fonts.ready.then(() => setFontsLoaded(true))
     if (document.readyState === "complete") { onReady() }
@@ -640,9 +650,6 @@ const App = () => {
     }
   }, [])
 
-  // Gate 2: audio — fully decode all files into memory.
-  // On mobile this runs in parallel while the gate screen is
-  // visible, so audio is ready before or right when user taps.
   useEffect(() => {
     preloadAudio().then(() => setAudioLoaded(true))
   }, [])
@@ -661,24 +668,19 @@ const App = () => {
     setGateCleared(true)
   }, [])
 
-  // Desktop: wait for fonts + audio, then show scramble loader directly
-  // Mobile:  wait for fonts, show gate screen (audio loads in bg),
-  //          after gate tap show scramble loader
-  const showMobileGate  = isMobile && fontsLoaded && !gateCleared
-  const canShowLoader   = isMobile
-    ? fontsLoaded && gateCleared          // mobile: gate tapped (audio ready by now)
-    : fontsLoaded && audioLoaded          // desktop: audio fully decoded first
+  const showMobileGate = isMobile && fontsLoaded && !gateCleared
+  const canShowLoader  = isMobile
+    ? fontsLoaded && gateCleared
+    : fontsLoaded && audioLoaded
 
   return (
     <ErrorBoundary>
       <ReactLenis root style={{ position: "relative", width: "100vw", minHeight: "100vh", overflowX: "hidden" }}>
 
-        {/* Mobile gate — shows while audio downloads in background */}
         {showMobileGate && (
           <MobileGate onEnter={handleGateEnter} audioReady={audioLoaded} />
         )}
 
-        {/* Scramble loader */}
         {canShowLoader && showLoader && (
           <ScrambleLoader key={loaderMode + "-" + Date.now()} mode={loaderMode} onDone={handleLoaderDone} />
         )}

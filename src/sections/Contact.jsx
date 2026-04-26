@@ -13,6 +13,7 @@ const EJS_SERVICE_ID  = import.meta.env.VITE_EMAILJS_SERVICE_ID;
 const EJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
 const EJS_PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 const currentYear = new Date().getFullYear();
+
 /* ─── SplitHeader ─── */
 const SplitHeader = memo(({ text, style, delay = 0, triggerRef }) => {
   const wrapRef = useRef(null);
@@ -184,7 +185,7 @@ const Contact = memo(() => {
         <span className="text-[10px] text-white/15 tracking-[.1em]">FD / {currentYear}</span>
       </div>
 
-      {/* ── Hero heading — split animated ── */}
+      {/* ── Hero heading ── */}
       <div ref={heroRef} className="px-5 pt-8 pb-6 lg:px-16 lg:pt-14">
         <SplitHeader
           text="Let's"
@@ -197,7 +198,6 @@ const Contact = memo(() => {
           }}
         />
 
-        {/* "Work" + "together." inline */}
         <div className="flex flex-wrap items-end gap-4" style={{ overflow: "hidden" }}>
           <SplitHeader
             text="Work"
@@ -223,7 +223,6 @@ const Contact = memo(() => {
           </span>
         </div>
 
-        {/* Badge */}
         <div className="mt-4 inline-flex items-center gap-2 border border-white/[0.1] px-3 py-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-[#e5ff47] animate-pulse flex-shrink-0" />
           <span className="text-[10px] tracking-[.15em] uppercase text-white/40">
@@ -398,7 +397,14 @@ const Contact = memo(() => {
       </div>
 
       {/* ── Footer bar ── */}
-      <div className="flex justify-between items-center px-5 py-5 lg:px-16">
+      {/* id="ct-footer" lets the mobile drawer observer target and animate this element */}
+      <div
+        id="ct-footer"
+        className="flex justify-between items-center px-5 py-5 lg:px-16"
+        style={{
+          transition: "transform 0.45s cubic-bezier(0.22,1,0.36,1), opacity 0.35s ease",
+        }}
+      >
         <span style={{ fontSize: "9px", letterSpacing: ".18em", textTransform: "uppercase", color: "rgba(255,255,255,0.38)" }}>
           © {currentYear} @CoconutStudios
         </span>

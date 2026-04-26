@@ -45,9 +45,6 @@ const resolveChar = (entry) => {
 
 /* ─────────────────────────────────────────────────────────
    Audio cache — one Audio element per file.
-   intro    → reused persistent element (long track)
-   glitch   → source only, cloned per-play (short sfx)
-   buttonclick → source only, cloned per-play (short sfx)
 ───────────────────────────────────────────────────────── */
 const audioCache = {
   intro:       null,
@@ -55,7 +52,6 @@ const audioCache = {
   buttonclick: null,
 }
 
-// true once a real user gesture has unlocked the AudioContext
 let _audioUnlocked = false
 
 const AUDIO_DEFS = [
@@ -65,7 +61,6 @@ const AUDIO_DEFS = [
   { key: "hope",        src: "/audio/hope.mp3",         volume: 0.7  },
 ]
 
-/* Preload all audio into cached Audio elements */
 const preloadAudio = () =>
   Promise.all(
     AUDIO_DEFS.map(({ key, src, volume }) =>
@@ -81,15 +76,12 @@ const preloadAudio = () =>
         }
         audio.addEventListener("canplaythrough", done, { once: true })
         audio.addEventListener("error",          done, { once: true })
-        setTimeout(done, 6000)   // never block the app
+        setTimeout(done, 6000)
         audio.load()
       })
     )
   )
 
-/* ── playIntro ─────────────────────────────────────────
-   Resets + plays the cached intro element.
-   Safe to call multiple times. */
 const playIntro = () => {
   const a = audioCache.intro
   if (!a) return
@@ -105,9 +97,6 @@ const stopIntro = () => {
   try { a.pause(); a.currentTime = 0 } catch (_) {}
 }
 
-/* ── playGlitch / playButtonClick ──────────────────────
-   Clone-based: each call is a fresh, short-lived element.
-   Auto-discarded on "ended". NO loop. NO accumulation. */
 const playGlitch = () => {
   if (!_audioUnlocked) return
   const src = audioCache.glitch
@@ -134,11 +123,7 @@ const playButtonClick = () => {
 }
 
 /* ─────────────────────────────────────────────────────────
-   MobileGate — shown on mobile before the scramble loader.
-
-   The tap IS the user gesture that unlocks iOS Safari.
-   We set _audioUnlocked + call playIntro() synchronously
-   here so the play() call is inside the gesture call stack.
+   MobileGate
 ───────────────────────────────────────────────────────── */
 const MobileGate = ({ onEnter, audioReady }) => {
   const [fade, setFade]       = useState(false)
@@ -146,7 +131,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
   const [waiting, setWaiting] = useState(false)
   const [pressed, setPressed] = useState(false)
 
-  // Occasional lock-icon glitch flicker (visual only, no sound)
   useEffect(() => {
     const schedule = () => {
       const delay = 1800 + Math.random() * 2400
@@ -162,8 +146,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
   const handleTap = () => {
     if (fade) return
     setPressed(true)
-    // ── CRITICAL: unlock audio + start intro SYNCHRONOUSLY
-    //    inside the gesture handler — iOS Safari requirement.
     _audioUnlocked = true
     playIntro()
 
@@ -175,7 +157,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
     setTimeout(onEnter, 700)
   }
 
-  // Auto-proceed once audio finishes if user already tapped
   useEffect(() => {
     if (waiting && audioReady) {
       setFade(true)
@@ -208,7 +189,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
         }
       `}</style>
 
-      {/* Scanlines */}
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
         background: "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.012) 2px,rgba(255,255,255,0.012) 4px)",
@@ -220,13 +200,10 @@ const MobileGate = ({ onEnter, audioReady }) => {
         gap: "28px", animation: "mgFadeUp 0.8s ease both",
         padding: "0 24px", width: "100%", maxWidth: "360px",
       }}>
-
-        {/* Name */}
         <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "9px", letterSpacing: ".38em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)" }}>
           Fuoseigha Darwin
         </div>
 
-        {/* Lock icon */}
         <div style={{
           width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center",
           border: `1px solid ${glitch ? "#e5ff47" : "rgba(255,255,255,0.12)"}`,
@@ -242,7 +219,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
           </svg>
         </div>
 
-        {/* Headline */}
         <div style={{ textAlign: "center" }}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(28px, 8vw, 48px)", letterSpacing: ".12em", color: "#fff", lineHeight: 1.1 }}>
             SITE LOCKED
@@ -252,9 +228,7 @@ const MobileGate = ({ onEnter, audioReady }) => {
           </div>
         </div>
 
-        {/* ── BIG OBVIOUS TAP BUTTON ── */}
         <div style={{ position: "relative", width: "100%", marginTop: "8px" }}>
-          {/* Ripple rings — animate outward on press */}
           {pressed && !fade && (
             <>
               <div style={{
@@ -307,10 +281,8 @@ const MobileGate = ({ onEnter, audioReady }) => {
               </>
             ) : (
               <>
-                {/* Left decorative bracket */}
                 <span style={{ fontFamily: "monospace", fontSize: "18px", opacity: 0.4, lineHeight: 1 }}>[</span>
                 <span style={{ letterSpacing: ".3em" }}>TAP TO DECRYPT</span>
-                {/* Right arrow */}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
                   stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                   style={{ animation: "mgArrow 1s ease-in-out infinite", flexShrink: 0 }}>
@@ -322,7 +294,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
             )}
           </button>
 
-          {/* Bottom label strip */}
           {!waiting && (
             <div style={{
               marginTop: "10px", display: "flex", alignItems: "center",
@@ -342,7 +313,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
           )}
         </div>
 
-        {/* Touch hint */}
         {!pressed && !waiting && (
           <div style={{
             fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px",
@@ -359,15 +329,6 @@ const MobileGate = ({ onEnter, audioReady }) => {
 
 /* ─────────────────────────────────────────────────────────
    ScrambleLoader
-
-   Desktop fix: on mount we attempt playIntro() immediately.
-   Browsers allow autoplay for short-duration or muted audio,
-   but for unmuted audio we still need a gesture. So:
-   - We try playIntro() right away (works in many desktop browsers)
-   - We also attach a one-time gesture listener as fallback
-   - The listener fires on the FIRST user interaction (moving
-     mouse counts on desktop — we use 'mousemove' in addition
-     to click/keydown so intro starts as soon as they move)
 ───────────────────────────────────────────────────────── */
 const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   const isEncrypt = mode === "encrypt"
@@ -386,24 +347,15 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   const glitchTimer  = useRef(null)
   const isMounted    = useRef(true)
 
-  // ── Audio setup
   useEffect(() => {
     isMounted.current = true
 
     if (_audioUnlocked) {
-      // Mobile: already unlocked + intro playing from gate tap. Nothing to do.
-      // Desktop re-entry (encrypt flow): restart intro.
       if (mode === "encrypt") playIntro()
     } else {
-      // Desktop first load.
-      // Try autoplay immediately — works in Chrome/Edge when user has
-      // previously interacted with the domain, or when MEI score is high.
       playIntro()
-      _audioUnlocked = true  // optimistic — if play() failed silently that's fine
+      _audioUnlocked = true
 
-      // Fallback: also hook into first gesture in case autoplay was blocked.
-      // 'mousemove' fires immediately when they move the cursor, so intro
-      // starts well before they click anything.
       const onGesture = () => {
         playIntro()
         document.removeEventListener("mousemove", onGesture)
@@ -430,7 +382,6 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
     }
   }, [mode])
 
-  // ── Lock letters one by one
   useEffect(() => {
     lockedCount.current = 0
     lockedRef.current   = Array(TARGET.length).fill(false)
@@ -449,7 +400,6 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
     })
   }, [mode])
 
-  // ── Scramble interval
   useEffect(() => {
     const id = setInterval(() => {
       setDisplay(prev => prev.map((item, i) => {
@@ -464,9 +414,6 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
     return () => clearInterval(id)
   }, [mode, isEncrypt, lockedIcons])
 
-  // ── Glitch effect — only active while showBtn is true.
-  //    `stopped` flag + clearTimeout guarantee no orphaned
-  //    chains after unmount or showBtn going false.
   useEffect(() => {
     if (!showBtn) return
 
@@ -480,7 +427,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
         const idx = Math.floor(Math.random() * TARGET.length)
         if (!lockedRef.current[idx]) { scheduleGlitch(); return }
 
-        playGlitch()  // clone-based, discarded on "ended", never loops
+        playGlitch()
 
         glitchRef.current[idx] = true
         setDisplay(prev => { const n = [...prev]; n[idx] = { entry: rand(POOL), glitch: true }; return n })
@@ -503,7 +450,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
                   : { entry: { type: "text", char: TARGET[idx] }, glitch: false }
                 return n
               })
-              scheduleGlitch()  // next glitch only after this one fully resolves
+              scheduleGlitch()
             }, 140)
           }
         }, 80)
@@ -629,6 +576,45 @@ const GLITCH_OFFSETS = [
   [ [3,1],  [0,0],  [-2,-3],[1,2],  [0,0],   [0,0],  [-3,2] ],
 ]
 
+/* ─────────────────────────────────────────────────────────
+   MobileDrawerObserver
+   Watches #Contact entering/leaving the viewport and
+   swaps the enc-drawer-mobile with the ct-footer.
+   Only mounted on mobile (isMobile guard in CorruptedQR).
+───────────────────────────────────────────────────────── */
+const MobileDrawerObserver = () => {
+  useEffect(() => {
+    const contact = document.getElementById("Contact")
+    const drawer  = document.getElementById("enc-drawer-mobile")
+    const footer  = document.getElementById("ct-footer")
+    if (!contact || !drawer || !footer) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          // Contact section in view — slide drawer up, push footer out
+          drawer.classList.add("enc-visible")
+          footer.style.transform   = "translateY(100%)"
+          footer.style.opacity     = "0"
+          footer.style.pointerEvents = "none"
+        } else {
+          // Left view — retract drawer, restore footer
+          drawer.classList.remove("enc-visible")
+          footer.style.transform   = ""
+          footer.style.opacity     = ""
+          footer.style.pointerEvents = ""
+        }
+      },
+      { threshold: 0.08 }
+    )
+
+    observer.observe(contact)
+    return () => observer.disconnect()
+  }, [])
+
+  return null
+}
+
 const CorruptedQR = ({ onClick, isMobile }) => {
   const [visible, setVisible] = useState(false)
 
@@ -653,43 +639,155 @@ const CorruptedQR = ({ onClick, isMobile }) => {
     })
   ).join("\n")
 
+  /* ── MOBILE: full-width bottom drawer ── */
   if (isMobile) {
     return (
       <>
         <style>{`
-          @keyframes mobileBadgePulse {
-            0%,100% { box-shadow: 0 0 0 0 rgba(229,255,71,0); }
-            50%     { box-shadow: 0 0 0 5px rgba(229,255,71,0.18); }
+          @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400&display=swap');
+
+          @keyframes encScan {
+            0%   { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
           }
-          @keyframes mobileBadgeFade {
-            from { opacity:0; transform: scale(0.85); }
-            to   { opacity:1; transform: scale(1); }
+          @keyframes encDot {
+            0%,100% { opacity: 1; }
+            50%     { opacity: 0.15; }
           }
-          .mobile-badge {
-            position: fixed; top: 72px; right: 16px; z-index: 500;
-            display: flex; align-items: center; gap: 6px;
-            padding: 5px 10px; background: rgba(0,0,0,0.75);
-            backdrop-filter: blur(6px); border: 1px solid rgba(229,255,71,0.2);
-            cursor: pointer; user-select: none; opacity: 0; pointer-events: none;
-            transition: opacity 0.6s ease; animation: mobileBadgePulse 3s ease-in-out infinite;
+          @keyframes encCta {
+            0%,100% { opacity: 1; }
+            50%     { opacity: 0.72; }
+          }
+          @keyframes encGlow {
+            0%,100% { border-top-color: rgba(229,255,71,0.15); }
+            50%     { border-top-color: rgba(229,255,71,0.5); }
+          }
+
+          .enc-drawer-mobile {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            z-index: 500;
+            background: #000;
+            border-top: 1px solid rgba(229,255,71,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 13px 20px;
+            cursor: pointer;
             -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            transform: translateY(100%);
+            opacity: 0;
+            pointer-events: none;
+            transition:
+              transform 0.45s cubic-bezier(0.22,1,0.36,1),
+              opacity   0.35s ease;
           }
-          .mobile-badge.visible {
-            opacity: 1; pointer-events: all;
-            animation: mobileBadgeFade 0.6s ease both, mobileBadgePulse 3s 0.6s ease-in-out infinite;
+          .enc-drawer-mobile.enc-visible {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: all;
+            animation: encGlow 3s ease-in-out infinite;
           }
-          .mobile-badge:active { opacity: 0.7; }
+          .enc-drawer-mobile:active {
+            background: rgba(229,255,71,0.04);
+          }
+
+          .enc-scan {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(229,255,71,0.45), transparent);
+            animation: encScan 2.8s linear infinite;
+            pointer-events: none;
+          }
+
+          .enc-dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: #e5ff47;
+            box-shadow: 0 0 5px rgba(229,255,71,0.9);
+            flex-shrink: 0;
+            animation: encDot 1.4s ease-in-out infinite;
+          }
+
+          .enc-cta {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 8px;
+            letter-spacing: .2em;
+            text-transform: uppercase;
+            color: #000;
+            background: #e5ff47;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            animation: encCta 2.5s ease-in-out infinite;
+          }
         `}</style>
-        <div className={`mobile-badge${visible ? " visible" : ""}`} onClick={onClick}>
-          <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#e5ff47", flexShrink: 0, boxShadow: "0 0 6px rgba(229,255,71,0.6)" }} />
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(229,255,71,0.7)", whiteSpace: "nowrap" }}>
-            sys.enc_
-          </span>
+
+        {/* The drawer itself */}
+        <div
+          className="enc-drawer-mobile"
+          id="enc-drawer-mobile"
+          onClick={onClick}
+          role="button"
+          aria-label="Encrypt site"
+        >
+          <div className="enc-scan" />
+
+          {/* Left — sys label */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+              <div className="enc-dot" />
+              <span style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: "11px",
+                letterSpacing: ".25em",
+                textTransform: "uppercase",
+                color: "rgba(229,255,71,0.85)",
+                lineHeight: 1,
+              }}>
+                sys.enc_
+              </span>
+            </div>
+            <span style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: "7px",
+              letterSpacing: ".2em",
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.22)",
+              paddingLeft: "12px",
+            }}>
+              encryption available
+            </span>
+          </div>
+
+          {/* Right — lock + CTA */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(229,255,71,0.5)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            <div className="enc-cta">
+              encrypt
+              <svg width="9" height="9" viewBox="0 0 12 12" fill="none"
+                stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="6" y1="1" x2="6" y2="10"/>
+                <polyline points="2,7 6,11 10,7"/>
+              </svg>
+            </div>
+          </div>
         </div>
+
+        {/* Observer that swaps drawer ↔ footer on scroll */}
+        <MobileDrawerObserver />
       </>
     )
   }
 
+  /* ── DESKTOP: corrupted QR code ── */
   return (
     <>
       <style>{`

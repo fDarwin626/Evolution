@@ -43,15 +43,6 @@ const resolveChar = (entry) => {
   return "@"
 }
 
-/* ─────────────────────────────────────────────────────────
-   preloadAudio — fetches all 4 audio files via fetch() so
-   the browser caches them BEFORE the loader even appears.
-   Much more reliable than <link rel="preload"> alone which
-   browsers treat as low priority and often skip on slow connections.
-
-   We use a 3s timeout per file — if it hasn't loaded by then
-   we proceed anyway so the site never hangs on a bad connection.
-───────────────────────────────────────────────────────── */
 const AUDIO_FILES = [
   "/audio/intro.wav",
   "/audio/glitch.wav",
@@ -59,22 +50,201 @@ const AUDIO_FILES = [
   "/audio/hope.mp3",
 ]
 
+/* ─────────────────────────────────────────────────────────
+   preloadAudio — fetches + fully decodes every audio file
+   into browser memory using AudioContext.decodeAudioData().
+   Resolves only when audio is 100% parsed and ready, not
+   just when the HTTP response headers arrived (old bug).
+   6s timeout per file — generous for slow mobile networks.
+───────────────────────────────────────────────────────── */
 const preloadAudio = () => {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext
+  if (!AudioCtx) {
+    return Promise.all(
+      AUDIO_FILES.map(src =>
+        new Promise((resolve) => {
+          const t = setTimeout(resolve, 6000)
+          fetch(src, { cache: "force-cache" })
+            .then(() => { clearTimeout(t); resolve() })
+            .catch(() => { clearTimeout(t); resolve() })
+        })
+      )
+    )
+  }
+  const ctx = new AudioCtx()
   return Promise.all(
-    AUDIO_FILES.map(src => {
-      return new Promise((resolve) => {
-        // 3s timeout — never block the site indefinitely
-        const timer = setTimeout(resolve, 3000)
-        fetch(src, { cache: "force-cache" })
-          .then(() => { clearTimeout(timer); resolve() })
-          .catch(() => { clearTimeout(timer); resolve() }) // silent fail — resolve anyway
+    AUDIO_FILES.map(src =>
+      new Promise((resolve) => {
+        const t = setTimeout(resolve, 6000)
+        fetch(src, { cache: "force-cache", priority: "high" })
+          .then(r => r.arrayBuffer())
+          .then(buf => ctx.decodeAudioData(buf))
+          .then(() => { clearTimeout(t); resolve() })
+          .catch(() => { clearTimeout(t); resolve() })
       })
-    })
+    )
+  ).finally(() => { ctx.close().catch(() => {}) })
+}
+
+/* ─────────────────────────────────────────────────────────
+   MobileGate — shown on mobile BEFORE the scramble loader.
+
+   Solves two mobile audio problems at once:
+   1. The tap is a real user gesture → unlocks AudioContext
+      on iOS Safari and Chrome Android.
+   2. Audio downloads in the background while the gate is
+      visible → by the time user taps, files are ready.
+
+   If they tap before audio finishes loading, we show a
+   brief spinner and auto-proceed the moment it resolves.
+───────────────────────────────────────────────────────── */
+const MobileGate = ({ onEnter, audioReady }) => {
+  const [fade, setFade]       = useState(false)
+  const [glitch, setGlitch]   = useState(false)
+  const [waiting, setWaiting] = useState(false)
+
+  // Occasional glitch flicker on the lock icon
+  useEffect(() => {
+    const schedule = () => {
+      const delay = 1800 + Math.random() * 2400
+      return setTimeout(() => {
+        setGlitch(true)
+        setTimeout(() => { setGlitch(false); schedule() }, 120 + Math.random() * 80)
+      }, delay)
+    }
+    const t = schedule()
+    return () => clearTimeout(t)
+  }, [])
+
+  const handleTap = () => {
+    if (fade) return
+    if (!audioReady) {
+      // Audio still loading — show spinner, auto-proceed when ready
+      setWaiting(true)
+      return
+    }
+    setFade(true)
+    setTimeout(onEnter, 700)
+  }
+
+  // Auto-proceed once audio finishes if user already tapped
+  useEffect(() => {
+    if (waiting && audioReady) {
+      setFade(true)
+      setTimeout(onEnter, 700)
+    }
+  }, [waiting, audioReady, onEnter])
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 999, background: "#000",
+      display: "flex", flexDirection: "column", alignItems: "center",
+      justifyContent: "center", gap: "32px",
+      opacity: fade ? 0 : 1, transition: "opacity 0.7s ease",
+      pointerEvents: fade ? "none" : "all",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400&display=swap');
+        @keyframes mgFadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes mgPulse  { 0%,100%{opacity:1} 50%{opacity:0.2} }
+        @keyframes mgGlow   { 0%,100%{box-shadow:0 0 0 0 rgba(229,255,71,0)} 50%{box-shadow:0 0 0 8px rgba(229,255,71,0.12)} }
+        @keyframes mgSpin   { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+      `}</style>
+
+      {/* Scanline overlay */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.012) 2px,rgba(255,255,255,0.012) 4px)",
+      }} />
+
+      <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: "24px", animation: "mgFadeUp 0.8s ease both" }}>
+
+        {/* Name */}
+        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "9px", letterSpacing: ".38em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)" }}>
+          Fuoseigha Darwin
+        </div>
+
+        {/* Lock icon */}
+        <div style={{
+          width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center",
+          border: `1px solid ${glitch ? "#e5ff47" : "rgba(255,255,255,0.12)"}`,
+          transition: "border-color 0.08s",
+          filter: glitch ? "drop-shadow(0 0 6px #e5ff47)" : "none",
+        }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
+            stroke={glitch ? "#e5ff47" : "rgba(255,255,255,0.5)"}
+            strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transition: "stroke 0.08s" }}>
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+
+        {/* Headline */}
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(28px, 8vw, 48px)", letterSpacing: ".12em", color: "#fff", lineHeight: 1.1 }}>
+            SITE LOCKED
+          </div>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "9px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", marginTop: "10px", lineHeight: 2 }}>
+            Click to enter decryption password
+          </div>
+        </div>
+
+        {/* Tap button */}
+        <button
+          onClick={handleTap}
+          disabled={fade}
+          style={{
+            fontFamily: "'IBM Plex Mono', monospace", fontSize: "10px", letterSpacing: ".28em",
+            textTransform: "uppercase", padding: "16px 40px",
+            background: "#e5ff47", color: "#000", border: "none",
+            cursor: "pointer", display: "flex", alignItems: "center", gap: "12px",
+            marginTop: "8px", transition: "opacity 0.2s",
+            animation: "mgGlow 2.4s ease-in-out infinite",
+            WebkitTapHighlightColor: "transparent",
+          }}
+          onMouseEnter={e => e.currentTarget.style.opacity = ".75"}
+          onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+        >
+          {waiting ? (
+            <>
+              <svg width="12" height="12" viewBox="0 0 12 12" style={{ animation: "mgSpin 1s linear infinite" }}>
+                <circle cx="6" cy="6" r="5" fill="none" stroke="rgba(0,0,0,0.3)" strokeWidth="1.5"/>
+                <path d="M6 1A5 5 0 0 1 11 6" fill="none" stroke="#000" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              Decrypting...
+            </>
+          ) : (
+            <>
+              Tap to Decrypt
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="7" y1="1" x2="7" y2="11" />
+                <polyline points="3,8 7,12 11,8" />
+              </svg>
+            </>
+          )}
+        </button>
+
+        {/* Status indicator */}
+        {!audioReady && !waiting && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.15)" }}>
+            <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#e5ff47", animation: "mgPulse 1.2s ease-in-out infinite", display: "inline-block" }} />
+            Initialising audio
+          </div>
+        )}
+        {audioReady && !waiting && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.15)" }}>
+            <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+            Systems ready
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
 /* ─── ScrambleLoader ─── */
-const ScrambleLoader = ({ onDone, mode = "decrypt", audioCache }) => {
+const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   const isEncrypt = mode === "encrypt"
   const [display, setDisplay] = useState(() =>
     Array(TARGET.length).fill(null).map(() => ({ entry: { type: "text", char: "@" }, glitch: false }))
@@ -93,8 +263,9 @@ const ScrambleLoader = ({ onDone, mode = "decrypt", audioCache }) => {
   const unlockedRef      = useRef(false)
 
   useEffect(() => {
-    // Audio is already in browser cache from preloadAudio() — these
-    // Audio() constructors will hit the cache instantly, zero network wait
+    // Audio is fully decoded in cache AND AudioContext is already
+    // unlocked (by the MobileGate tap on mobile, or will be unlocked
+    // on first gesture on desktop). These play instantly.
     const intro = new Audio("/audio/intro.wav")
     intro.preload = "auto"
     intro.volume = 0.55
@@ -109,17 +280,14 @@ const ScrambleLoader = ({ onDone, mode = "decrypt", audioCache }) => {
     btnClick.volume = 0.9
     btnClickAudioRef.current = btnClick
 
-    // Unlock audio context on first user gesture (iOS/Android requirement)
+    // Desktop: unlock on first gesture if not yet done
     const unlockAudio = () => {
       if (unlockedRef.current) return
       unlockedRef.current = true
       ;[introAudioRef, glitchAudioRef, btnClickAudioRef].forEach(ref => {
         if (!ref.current) return
         ref.current.play().then(() => {
-          if (ref !== introAudioRef) {
-            ref.current.pause()
-            ref.current.currentTime = 0
-          }
+          if (ref !== introAudioRef) { ref.current.pause(); ref.current.currentTime = 0 }
         }).catch(() => {})
       })
       document.removeEventListener("click",    unlockAudio)
@@ -130,7 +298,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt", audioCache }) => {
     document.addEventListener("keydown",  unlockAudio, { once: true })
     document.addEventListener("touchend", unlockAudio, { once: true })
 
-    // Play intro — audio is already cached so this fires immediately
+    // Play intro — on mobile AudioContext is already unlocked by gate tap
     try {
       const p = intro.play()
       if (p !== undefined) p.then(() => { unlockedRef.current = true }).catch(() => {})
@@ -146,7 +314,6 @@ const ScrambleLoader = ({ onDone, mode = "decrypt", audioCache }) => {
     }
   }, [mode])
 
-  // Clone preloaded node — overlapping glitches each get own instance
   const playGlitchSound = () => {
     try {
       if (!glitchAudioRef.current) return
@@ -192,10 +359,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt", audioCache }) => {
       return setTimeout(() => {
         const idx = Math.floor(Math.random() * TARGET.length)
         if (!lockedRef.current[idx]) { scheduleGlitch(); return }
-
-        // Fire glitch.wav exactly when each letter glitch triggers
         playGlitchSound()
-
         glitchRef.current[idx] = true
         setDisplay(prev => { const n = [...prev]; n[idx] = { entry: rand(POOL), glitch: true }; return n })
         const flickers = Math.random() > 0.4 ? 3 : 2
@@ -298,6 +462,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt", audioCache }) => {
             border: isEncrypt ? "1px solid #e5ff47" : "none",
             cursor: "pointer", display: "flex", alignItems: "center", gap: "10px",
             animation: "btnIn 0.6s ease both", marginTop: "8px", transition: "opacity 0.2s",
+            WebkitTapHighlightColor: "transparent",
           }}
             onMouseEnter={e => e.currentTarget.style.opacity = ".75"}
             onMouseLeave={e => e.currentTarget.style.opacity = "1"}
@@ -388,6 +553,7 @@ const CorruptedQR = ({ onClick, isMobile }) => {
             backdrop-filter: blur(6px); border: 1px solid rgba(229,255,71,0.2);
             cursor: pointer; user-select: none; opacity: 0; pointer-events: none;
             transition: opacity 0.6s ease; animation: mobileBadgePulse 3s ease-in-out infinite;
+            -webkit-tap-highlight-color: transparent;
           }
           .mobile-badge.visible {
             opacity: 1; pointer-events: all;
@@ -451,7 +617,8 @@ const CorruptedQR = ({ onClick, isMobile }) => {
 const App = () => {
   const [isReady, setIsReady]         = useState(false)
   const [fontsLoaded, setFontsLoaded] = useState(false)
-  const [audioLoaded, setAudioLoaded] = useState(false) // ← new gate
+  const [audioLoaded, setAudioLoaded] = useState(false)
+  const [gateCleared, setGateCleared] = useState(false) // mobile: has user tapped the gate?
   const [loaderMode, setLoaderMode]   = useState("decrypt")
   const [showLoader, setShowLoader]   = useState(true)
   const [isMobile, setIsMobile]       = useState(false)
@@ -473,9 +640,9 @@ const App = () => {
     }
   }, [])
 
-  // Gate 2: audio — fetch all files into browser cache FIRST
-  // The loader only mounts after BOTH gates pass so audio is
-  // always ready before intro.wav tries to play
+  // Gate 2: audio — fully decode all files into memory.
+  // On mobile this runs in parallel while the gate screen is
+  // visible, so audio is ready before or right when user taps.
   useEffect(() => {
     preloadAudio().then(() => setAudioLoaded(true))
   }, [])
@@ -490,15 +657,32 @@ const App = () => {
     else { setLoaderMode("decrypt"); setIsReady(false); setShowLoader(true) }
   }, [loaderMode])
 
-  // Both fonts AND audio must be ready before the loader appears
-  const canShow = fontsLoaded && audioLoaded
+  const handleGateEnter = useCallback(() => {
+    setGateCleared(true)
+  }, [])
+
+  // Desktop: wait for fonts + audio, then show scramble loader directly
+  // Mobile:  wait for fonts, show gate screen (audio loads in bg),
+  //          after gate tap show scramble loader
+  const showMobileGate  = isMobile && fontsLoaded && !gateCleared
+  const canShowLoader   = isMobile
+    ? fontsLoaded && gateCleared          // mobile: gate tapped (audio ready by now)
+    : fontsLoaded && audioLoaded          // desktop: audio fully decoded first
 
   return (
     <ErrorBoundary>
       <ReactLenis root style={{ position: "relative", width: "100vw", minHeight: "100vh", overflowX: "hidden" }}>
-        {canShow && showLoader && (
+
+        {/* Mobile gate — shows while audio downloads in background */}
+        {showMobileGate && (
+          <MobileGate onEnter={handleGateEnter} audioReady={audioLoaded} />
+        )}
+
+        {/* Scramble loader */}
+        {canShowLoader && showLoader && (
           <ScrambleLoader key={loaderMode + "-" + Date.now()} mode={loaderMode} onDone={handleLoaderDone} />
         )}
+
         <div style={{ opacity: isReady ? 1 : 0, transition: "opacity 1s ease" }}>
           <Navbar />
           <Hero animate={isReady} />
@@ -509,6 +693,7 @@ const App = () => {
           <ContactSummary />
           <Contact />
         </div>
+
         {isReady && <CorruptedQR onClick={handleEncrypt} isMobile={isMobile} />}
       </ReactLenis>
     </ErrorBoundary>

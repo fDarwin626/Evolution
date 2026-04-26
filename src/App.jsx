@@ -43,8 +43,38 @@ const resolveChar = (entry) => {
   return "@"
 }
 
+/* ─────────────────────────────────────────────────────────
+   preloadAudio — fetches all 4 audio files via fetch() so
+   the browser caches them BEFORE the loader even appears.
+   Much more reliable than <link rel="preload"> alone which
+   browsers treat as low priority and often skip on slow connections.
+
+   We use a 3s timeout per file — if it hasn't loaded by then
+   we proceed anyway so the site never hangs on a bad connection.
+───────────────────────────────────────────────────────── */
+const AUDIO_FILES = [
+  "/audio/intro.wav",
+  "/audio/glitch.wav",
+  "/audio/buttonclick.mp3",
+  "/audio/hope.mp3",
+]
+
+const preloadAudio = () => {
+  return Promise.all(
+    AUDIO_FILES.map(src => {
+      return new Promise((resolve) => {
+        // 3s timeout — never block the site indefinitely
+        const timer = setTimeout(resolve, 3000)
+        fetch(src, { cache: "force-cache" })
+          .then(() => { clearTimeout(timer); resolve() })
+          .catch(() => { clearTimeout(timer); resolve() }) // silent fail — resolve anyway
+      })
+    })
+  )
+}
+
 /* ─── ScrambleLoader ─── */
-const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
+const ScrambleLoader = ({ onDone, mode = "decrypt", audioCache }) => {
   const isEncrypt = mode === "encrypt"
   const [display, setDisplay] = useState(() =>
     Array(TARGET.length).fill(null).map(() => ({ entry: { type: "text", char: "@" }, glitch: false }))
@@ -57,24 +87,19 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   const glitchRef               = useRef(Array(TARGET.length).fill(false))
   const lockedCount             = useRef(0)
 
-  // ── Audio refs ──
-  // intro.wav       → plays immediately when loader appears
-  // glitch.wav      → cloned + fired on EACH individual letter glitch
-  // buttonclick.mp3 → fires when user clicks the button
-  // hope.mp3        → MOVED to Hero.jsx, plays on hero animation start
   const introAudioRef    = useRef(null)
   const glitchAudioRef   = useRef(null)
   const btnClickAudioRef = useRef(null)
   const unlockedRef      = useRef(false)
 
   useEffect(() => {
+    // Audio is already in browser cache from preloadAudio() — these
+    // Audio() constructors will hit the cache instantly, zero network wait
     const intro = new Audio("/audio/intro.wav")
     intro.preload = "auto"
     intro.volume = 0.55
     introAudioRef.current = intro
 
-    // Preload glitch.wav once — we clone this node on every glitch so
-    // rapid overlapping glitches all play simultaneously
     const glitch = new Audio("/audio/glitch.wav")
     glitch.preload = "auto"
     glitchAudioRef.current = glitch
@@ -84,7 +109,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
     btnClick.volume = 0.9
     btnClickAudioRef.current = btnClick
 
-    // Unlock audio context on first user gesture (required for iOS/Android)
+    // Unlock audio context on first user gesture (iOS/Android requirement)
     const unlockAudio = () => {
       if (unlockedRef.current) return
       unlockedRef.current = true
@@ -105,7 +130,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
     document.addEventListener("keydown",  unlockAudio, { once: true })
     document.addEventListener("touchend", unlockAudio, { once: true })
 
-    // Play intro immediately (desktop works; mobile waits for gesture above)
+    // Play intro — audio is already cached so this fires immediately
     try {
       const p = intro.play()
       if (p !== undefined) p.then(() => { unlockedRef.current = true }).catch(() => {})
@@ -121,8 +146,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
     }
   }, [mode])
 
-  // ── playGlitchSound — clones the preloaded node so overlapping glitches
-  //    each get their own audio instance and never cut each other off ──
+  // Clone preloaded node — overlapping glitches each get own instance
   const playGlitchSound = () => {
     try {
       if (!glitchAudioRef.current) return
@@ -169,7 +193,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
         const idx = Math.floor(Math.random() * TARGET.length)
         if (!lockedRef.current[idx]) { scheduleGlitch(); return }
 
-        // ── Fire glitch.wav exactly when each letter glitch triggers ──
+        // Fire glitch.wav exactly when each letter glitch triggers
         playGlitchSound()
 
         glitchRef.current[idx] = true
@@ -200,7 +224,6 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
     return () => clearTimeout(t)
   }, [showBtn, isEncrypt, lockedIcons])
 
-  // ── Button click — buttonclick.mp3 only ──
   const handleBtn = () => {
     try {
       const btn = btnClickAudioRef.current
@@ -428,6 +451,7 @@ const CorruptedQR = ({ onClick, isMobile }) => {
 const App = () => {
   const [isReady, setIsReady]         = useState(false)
   const [fontsLoaded, setFontsLoaded] = useState(false)
+  const [audioLoaded, setAudioLoaded] = useState(false) // ← new gate
   const [loaderMode, setLoaderMode]   = useState("decrypt")
   const [showLoader, setShowLoader]   = useState(true)
   const [isMobile, setIsMobile]       = useState(false)
@@ -439,6 +463,7 @@ const App = () => {
     return () => window.removeEventListener("resize", check)
   }, [])
 
+  // Gate 1: fonts
   useEffect(() => {
     const onReady = () => document.fonts.ready.then(() => setFontsLoaded(true))
     if (document.readyState === "complete") { onReady() }
@@ -446,6 +471,13 @@ const App = () => {
       window.addEventListener("load", onReady)
       return () => window.removeEventListener("load", onReady)
     }
+  }, [])
+
+  // Gate 2: audio — fetch all files into browser cache FIRST
+  // The loader only mounts after BOTH gates pass so audio is
+  // always ready before intro.wav tries to play
+  useEffect(() => {
+    preloadAudio().then(() => setAudioLoaded(true))
   }, [])
 
   const handleEncrypt = useCallback(() => {
@@ -458,10 +490,13 @@ const App = () => {
     else { setLoaderMode("decrypt"); setIsReady(false); setShowLoader(true) }
   }, [loaderMode])
 
+  // Both fonts AND audio must be ready before the loader appears
+  const canShow = fontsLoaded && audioLoaded
+
   return (
     <ErrorBoundary>
       <ReactLenis root style={{ position: "relative", width: "100vw", minHeight: "100vh", overflowX: "hidden" }}>
-        {fontsLoaded && showLoader && (
+        {canShow && showLoader && (
           <ScrambleLoader key={loaderMode + "-" + Date.now()} mode={loaderMode} onDone={handleLoaderDone} />
         )}
         <div style={{ opacity: isReady ? 1 : 0, transition: "opacity 1s ease" }}>

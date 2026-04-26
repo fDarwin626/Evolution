@@ -289,14 +289,6 @@ const MobileHero = ({ animate }) => {
           <div style={{ width: "240px", height: "240px" }}>
             <FloatingShape />
           </div>
-          <div style={{
-            position: "absolute", bottom: "10px", right: "14px",
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: "7px", letterSpacing: ".2em", textTransform: "uppercase",
-            color: "rgba(0,0,0,0.18)",
-          }}>
-            3JS / WEBGL
-          </div>
         </div>
 
         <div style={{

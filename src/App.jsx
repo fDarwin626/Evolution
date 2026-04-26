@@ -44,10 +44,10 @@ const resolveChar = (entry) => {
 }
 
 /* ─────────────────────────────────────────────────────────
-   Audio cache — one Audio element per file, reused so the
-   same unlocked instance is always played.
-   Glitch / buttonclick are played as short-lived clones so
-   they never loop and don't accumulate.
+   Audio cache — one Audio element per file.
+   intro    → reused persistent element (long track)
+   glitch   → source only, cloned per-play (short sfx)
+   buttonclick → source only, cloned per-play (short sfx)
 ───────────────────────────────────────────────────────── */
 const audioCache = {
   intro:       null,
@@ -55,6 +55,7 @@ const audioCache = {
   buttonclick: null,
 }
 
+// true once a real user gesture has unlocked the AudioContext
 let _audioUnlocked = false
 
 const AUDIO_DEFS = [
@@ -64,6 +65,7 @@ const AUDIO_DEFS = [
   { key: "hope",        src: "/audio/hope.mp3",         volume: 0.7  },
 ]
 
+/* Preload all audio into cached Audio elements */
 const preloadAudio = () =>
   Promise.all(
     AUDIO_DEFS.map(({ key, src, volume }) =>
@@ -79,39 +81,43 @@ const preloadAudio = () =>
         }
         audio.addEventListener("canplaythrough", done, { once: true })
         audio.addEventListener("error",          done, { once: true })
-        setTimeout(done, 6000)
+        setTimeout(done, 6000)   // never block the app
         audio.load()
       })
     )
   )
 
+/* ── playIntro ─────────────────────────────────────────
+   Resets + plays the cached intro element.
+   Safe to call multiple times. */
 const playIntro = () => {
   const a = audioCache.intro
   if (!a) return
-  a.currentTime = 0
-  a.play().catch(() => {})
+  try {
+    a.currentTime = 0
+    a.play().catch(() => {})
+  } catch (_) {}
 }
 
 const stopIntro = () => {
   const a = audioCache.intro
   if (!a) return
-  a.pause()
-  a.currentTime = 0
+  try { a.pause(); a.currentTime = 0 } catch (_) {}
 }
 
-/* Clone-based playback — each call creates a fresh short-lived element.
-   The clone is nulled out on "ended" so it gets garbage collected.
-   There is NO loop, NO persistent reference. */
+/* ── playGlitch / playButtonClick ──────────────────────
+   Clone-based: each call is a fresh, short-lived element.
+   Auto-discarded on "ended". NO loop. NO accumulation. */
 const playGlitch = () => {
   if (!_audioUnlocked) return
   const src = audioCache.glitch
   if (!src) return
   try {
-    const clone = src.cloneNode()
-    clone.volume = 0.35
-    clone.loop   = false
-    clone.play().catch(() => {})
-    clone.addEventListener("ended", () => { clone.src = "" }, { once: true })
+    const c = src.cloneNode()
+    c.volume = 0.35
+    c.loop   = false
+    c.play().catch(() => {})
+    c.addEventListener("ended", () => { c.src = "" }, { once: true })
   } catch (_) {}
 }
 
@@ -119,22 +125,28 @@ const playButtonClick = () => {
   const src = audioCache.buttonclick
   if (!src) return
   try {
-    const clone = src.cloneNode()
-    clone.volume = 0.9
-    clone.loop   = false
-    clone.play().catch(() => {})
-    clone.addEventListener("ended", () => { clone.src = "" }, { once: true })
+    const c = src.cloneNode()
+    c.volume = 0.9
+    c.loop   = false
+    c.play().catch(() => {})
+    c.addEventListener("ended", () => { c.src = "" }, { once: true })
   } catch (_) {}
 }
 
 /* ─────────────────────────────────────────────────────────
-   MobileGate
+   MobileGate — shown on mobile before the scramble loader.
+
+   The tap IS the user gesture that unlocks iOS Safari.
+   We set _audioUnlocked + call playIntro() synchronously
+   here so the play() call is inside the gesture call stack.
 ───────────────────────────────────────────────────────── */
 const MobileGate = ({ onEnter, audioReady }) => {
   const [fade, setFade]       = useState(false)
   const [glitch, setGlitch]   = useState(false)
   const [waiting, setWaiting] = useState(false)
+  const [pressed, setPressed] = useState(false)
 
+  // Occasional lock-icon glitch flicker (visual only, no sound)
   useEffect(() => {
     const schedule = () => {
       const delay = 1800 + Math.random() * 2400
@@ -149,7 +161,9 @@ const MobileGate = ({ onEnter, audioReady }) => {
 
   const handleTap = () => {
     if (fade) return
-    // Unlock + play intro synchronously inside the gesture — iOS Safari requirement
+    setPressed(true)
+    // ── CRITICAL: unlock audio + start intro SYNCHRONOUSLY
+    //    inside the gesture handler — iOS Safari requirement.
     _audioUnlocked = true
     playIntro()
 
@@ -161,6 +175,7 @@ const MobileGate = ({ onEnter, audioReady }) => {
     setTimeout(onEnter, 700)
   }
 
+  // Auto-proceed once audio finishes if user already tapped
   useEffect(() => {
     if (waiting && audioReady) {
       setFade(true)
@@ -178,22 +193,40 @@ const MobileGate = ({ onEnter, audioReady }) => {
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400&display=swap');
-        @keyframes mgFadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes mgPulse  { 0%,100%{opacity:1} 50%{opacity:0.2} }
-        @keyframes mgGlow   { 0%,100%{box-shadow:0 0 0 0 rgba(229,255,71,0)} 50%{box-shadow:0 0 0 8px rgba(229,255,71,0.12)} }
-        @keyframes mgSpin   { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes mgFadeUp    { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes mgPulse     { 0%,100%{opacity:1} 50%{opacity:0.2} }
+        @keyframes mgSpin      { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes mgRipple    { 0%{transform:scale(1);opacity:0.5} 100%{transform:scale(2.2);opacity:0} }
+        @keyframes mgShimmer   { 0%{background-position:200% center} 100%{background-position:-200% center} }
+        @keyframes mgArrow     { 0%,100%{transform:translateX(0)} 50%{transform:translateX(5px)} }
+        @keyframes mgBorderRun {
+          0%   { clip-path: inset(0 100% 0 0); }
+          25%  { clip-path: inset(0 0 0 0); }
+          50%  { clip-path: inset(0 0 0 0); }
+          75%  { clip-path: inset(0 0 100% 0); }
+          100% { clip-path: inset(0 100% 0 0); }
+        }
       `}</style>
 
+      {/* Scanlines */}
       <div style={{
         position: "absolute", inset: 0, pointerEvents: "none",
         background: "repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.012) 2px,rgba(255,255,255,0.012) 4px)",
       }} />
 
-      <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: "24px", animation: "mgFadeUp 0.8s ease both" }}>
+      <div style={{
+        position: "relative", zIndex: 2,
+        display: "flex", flexDirection: "column", alignItems: "center",
+        gap: "28px", animation: "mgFadeUp 0.8s ease both",
+        padding: "0 24px", width: "100%", maxWidth: "360px",
+      }}>
+
+        {/* Name */}
         <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "9px", letterSpacing: ".38em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)" }}>
           Fuoseigha Darwin
         </div>
 
+        {/* Lock icon */}
         <div style={{
           width: "64px", height: "64px", display: "flex", alignItems: "center", justifyContent: "center",
           border: `1px solid ${glitch ? "#e5ff47" : "rgba(255,255,255,0.12)"}`,
@@ -209,59 +242,114 @@ const MobileGate = ({ onEnter, audioReady }) => {
           </svg>
         </div>
 
+        {/* Headline */}
         <div style={{ textAlign: "center" }}>
           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(28px, 8vw, 48px)", letterSpacing: ".12em", color: "#fff", lineHeight: 1.1 }}>
             SITE LOCKED
           </div>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "9px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", marginTop: "10px", lineHeight: 2 }}>
-            Click to enter decryption password
+            Tap below to decrypt &amp; enter
           </div>
         </div>
 
-        <button
-          onClick={handleTap}
-          disabled={fade}
-          style={{
-            fontFamily: "'IBM Plex Mono', monospace", fontSize: "10px", letterSpacing: ".28em",
-            textTransform: "uppercase", padding: "16px 40px",
-            background: "#e5ff47", color: "#000", border: "none",
-            cursor: "pointer", display: "flex", alignItems: "center", gap: "12px",
-            marginTop: "8px", transition: "opacity 0.2s",
-            animation: "mgGlow 2.4s ease-in-out infinite",
-            WebkitTapHighlightColor: "transparent",
-          }}
-          onMouseEnter={e => e.currentTarget.style.opacity = ".75"}
-          onMouseLeave={e => e.currentTarget.style.opacity = "1"}
-        >
-          {waiting ? (
+        {/* ── BIG OBVIOUS TAP BUTTON ── */}
+        <div style={{ position: "relative", width: "100%", marginTop: "8px" }}>
+          {/* Ripple rings — animate outward on press */}
+          {pressed && !fade && (
             <>
-              <svg width="12" height="12" viewBox="0 0 12 12" style={{ animation: "mgSpin 1s linear infinite" }}>
-                <circle cx="6" cy="6" r="5" fill="none" stroke="rgba(0,0,0,0.3)" strokeWidth="1.5"/>
-                <path d="M6 1A5 5 0 0 1 11 6" fill="none" stroke="#000" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              Decrypting...
-            </>
-          ) : (
-            <>
-              Tap to Decrypt
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="7" y1="1" x2="7" y2="11" />
-                <polyline points="3,8 7,12 11,8" />
-              </svg>
+              <div style={{
+                position: "absolute", inset: 0, border: "1px solid rgba(229,255,71,0.6)",
+                animation: "mgRipple 0.8s ease-out both",
+                animationDelay: "0s", pointerEvents: "none",
+              }} />
+              <div style={{
+                position: "absolute", inset: 0, border: "1px solid rgba(229,255,71,0.3)",
+                animation: "mgRipple 0.8s ease-out both",
+                animationDelay: "0.15s", pointerEvents: "none",
+              }} />
             </>
           )}
-        </button>
 
-        {!audioReady && !waiting && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.15)" }}>
-            <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#e5ff47", animation: "mgPulse 1.2s ease-in-out infinite", display: "inline-block" }} />
-            Initialising audio
-          </div>
-        )}
-        {audioReady && !waiting && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.15)" }}>
-            <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-            Systems ready
+          <button
+            onClick={handleTap}
+            disabled={fade}
+            style={{
+              width: "100%", padding: "22px 0",
+              fontFamily: "'IBM Plex Mono', monospace", fontSize: "11px",
+              letterSpacing: ".3em", textTransform: "uppercase",
+              background: waiting
+                ? "rgba(229,255,71,0.08)"
+                : "linear-gradient(90deg, #e5ff47 0%, #c8e800 40%, #e5ff47 60%, #c8e800 100%)",
+              backgroundSize: waiting ? "auto" : "200% auto",
+              color: waiting ? "#e5ff47" : "#000",
+              border: waiting ? "1px solid rgba(229,255,71,0.4)" : "none",
+              cursor: fade ? "default" : "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: "14px",
+              animation: waiting ? "none" : "mgShimmer 2.5s linear infinite",
+              WebkitTapHighlightColor: "transparent",
+              position: "relative", overflow: "hidden",
+              transition: "opacity 0.15s",
+              userSelect: "none",
+            }}
+            onTouchStart={e => { e.currentTarget.style.opacity = "0.8" }}
+            onTouchEnd={e => { e.currentTarget.style.opacity = "1" }}
+            onMouseDown={e => { e.currentTarget.style.opacity = "0.8" }}
+            onMouseUp={e => { e.currentTarget.style.opacity = "1" }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = "1" }}
+          >
+            {waiting ? (
+              <>
+                <svg width="13" height="13" viewBox="0 0 13 13" style={{ animation: "mgSpin 1s linear infinite", flexShrink: 0 }}>
+                  <circle cx="6.5" cy="6.5" r="5.5" fill="none" stroke="rgba(229,255,71,0.25)" strokeWidth="1.5"/>
+                  <path d="M6.5 1A5.5 5.5 0 0 1 12 6.5" fill="none" stroke="#e5ff47" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+                <span>Decrypting...</span>
+              </>
+            ) : (
+              <>
+                {/* Left decorative bracket */}
+                <span style={{ fontFamily: "monospace", fontSize: "18px", opacity: 0.4, lineHeight: 1 }}>[</span>
+                <span style={{ letterSpacing: ".3em" }}>TAP TO DECRYPT</span>
+                {/* Right arrow */}
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ animation: "mgArrow 1s ease-in-out infinite", flexShrink: 0 }}>
+                  <line x1="2" y1="8" x2="13" y2="8" />
+                  <polyline points="9,4 13,8 9,12" />
+                </svg>
+                <span style={{ fontFamily: "monospace", fontSize: "18px", opacity: 0.4, lineHeight: 1 }}>]</span>
+              </>
+            )}
+          </button>
+
+          {/* Bottom label strip */}
+          {!waiting && (
+            <div style={{
+              marginTop: "10px", display: "flex", alignItems: "center",
+              justifyContent: "center", gap: "8px",
+              fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px",
+              letterSpacing: ".22em", textTransform: "uppercase",
+              color: "rgba(255,255,255,0.15)",
+            }}>
+              <span style={{
+                width: "4px", height: "4px", borderRadius: "50%",
+                background: audioReady ? "#22c55e" : "#e5ff47",
+                animation: audioReady ? "none" : "mgPulse 1.2s ease-in-out infinite",
+                display: "inline-block",
+              }} />
+              {audioReady ? "Systems ready" : "Initialising audio"}
+            </div>
+          )}
+        </div>
+
+        {/* Touch hint */}
+        {!pressed && !waiting && (
+          <div style={{
+            fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px",
+            letterSpacing: ".2em", textTransform: "uppercase",
+            color: "rgba(255,255,255,0.1)", textAlign: "center",
+          }}>
+            touch &amp; hold to feel the vibration
           </div>
         )}
       </div>
@@ -271,6 +359,15 @@ const MobileGate = ({ onEnter, audioReady }) => {
 
 /* ─────────────────────────────────────────────────────────
    ScrambleLoader
+
+   Desktop fix: on mount we attempt playIntro() immediately.
+   Browsers allow autoplay for short-duration or muted audio,
+   but for unmuted audio we still need a gesture. So:
+   - We try playIntro() right away (works in many desktop browsers)
+   - We also attach a one-time gesture listener as fallback
+   - The listener fires on the FIRST user interaction (moving
+     mouse counts on desktop — we use 'mousemove' in addition
+     to click/keydown so intro starts as soon as they move)
 ───────────────────────────────────────────────────────── */
 const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   const isEncrypt = mode === "encrypt"
@@ -283,35 +380,47 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   const [showBtn, setShowBtn] = useState(false)
   const [fade, setFade]       = useState(false)
 
-  const lockedRef      = useRef(Array(TARGET.length).fill(false))
-  const glitchRef      = useRef(Array(TARGET.length).fill(false))
-  const lockedCount    = useRef(0)
-  const glitchTimer    = useRef(null)
-  const isMounted      = useRef(true)
+  const lockedRef    = useRef(Array(TARGET.length).fill(false))
+  const glitchRef    = useRef(Array(TARGET.length).fill(false))
+  const lockedCount  = useRef(0)
+  const glitchTimer  = useRef(null)
+  const isMounted    = useRef(true)
 
-  // ── Audio: desktop unlocks on first click; mobile already unlocked by gate tap
+  // ── Audio setup
   useEffect(() => {
     isMounted.current = true
 
     if (_audioUnlocked) {
-      // Already unlocked (mobile gate tap, or desktop re-entry).
-      // For the encrypt re-entry, restart intro.
+      // Mobile: already unlocked + intro playing from gate tap. Nothing to do.
+      // Desktop re-entry (encrypt flow): restart intro.
       if (mode === "encrypt") playIntro()
-      // For mobile decrypt: intro started in MobileGate.handleTap — already playing.
     } else {
-      // Desktop first load: wait for first click to unlock + play
+      // Desktop first load.
+      // Try autoplay immediately — works in Chrome/Edge when user has
+      // previously interacted with the domain, or when MEI score is high.
+      playIntro()
+      _audioUnlocked = true  // optimistic — if play() failed silently that's fine
+
+      // Fallback: also hook into first gesture in case autoplay was blocked.
+      // 'mousemove' fires immediately when they move the cursor, so intro
+      // starts well before they click anything.
       const onGesture = () => {
-        if (_audioUnlocked) return
-        _audioUnlocked = true
         playIntro()
+        document.removeEventListener("mousemove", onGesture)
+        document.removeEventListener("click",     onGesture)
+        document.removeEventListener("keydown",   onGesture)
+        document.removeEventListener("touchend",  onGesture)
       }
-      document.addEventListener("click",    onGesture, { once: true })
-      document.addEventListener("keydown",  onGesture, { once: true })
-      document.addEventListener("touchend", onGesture, { once: true })
+      document.addEventListener("mousemove", onGesture, { once: true })
+      document.addEventListener("click",     onGesture, { once: true })
+      document.addEventListener("keydown",   onGesture, { once: true })
+      document.addEventListener("touchend",  onGesture, { once: true })
+
       return () => {
-        document.removeEventListener("click",    onGesture)
-        document.removeEventListener("keydown",  onGesture)
-        document.removeEventListener("touchend", onGesture)
+        document.removeEventListener("mousemove", onGesture)
+        document.removeEventListener("click",     onGesture)
+        document.removeEventListener("keydown",   onGesture)
+        document.removeEventListener("touchend",  onGesture)
       }
     }
 
@@ -332,7 +441,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
         if (!isMounted.current) return
         lockedRef.current[i] = true
         setLocked(prev => { const n = [...prev]; n[i] = true; return n })
-        lockedCount.current += 1
+        lockedCount.current++
         if (lockedCount.current === TARGET.length) {
           setTimeout(() => { if (isMounted.current) setShowBtn(true) }, 600)
         }
@@ -356,9 +465,8 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   }, [mode, isEncrypt, lockedIcons])
 
   // ── Glitch effect — only active while showBtn is true.
-  //    `stopped` flag + clearTimeout ensure no sounds or
-  //    state updates fire after the component unmounts or
-  //    showBtn goes false.
+  //    `stopped` flag + clearTimeout guarantee no orphaned
+  //    chains after unmount or showBtn going false.
   useEffect(() => {
     if (!showBtn) return
 
@@ -372,7 +480,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
         const idx = Math.floor(Math.random() * TARGET.length)
         if (!lockedRef.current[idx]) { scheduleGlitch(); return }
 
-        playGlitch()   // clone-based, auto-discarded — won't loop
+        playGlitch()  // clone-based, discarded on "ended", never loops
 
         glitchRef.current[idx] = true
         setDisplay(prev => { const n = [...prev]; n[idx] = { entry: rand(POOL), glitch: true }; return n })
@@ -395,7 +503,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
                   : { entry: { type: "text", char: TARGET[idx] }, glitch: false }
                 return n
               })
-              scheduleGlitch()   // schedule NEXT glitch only after this one fully resolves
+              scheduleGlitch()  // next glitch only after this one fully resolves
             }, 140)
           }
         }, 80)

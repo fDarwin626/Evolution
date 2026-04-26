@@ -304,7 +304,7 @@ const MobileHero = ({ animate }) => {
           </p>
           <div>
             <p style={{ fontSize: "8px", letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(0,0,0,0.2)", margin: "0 0 4px", lineHeight: 1.8 }}>
-              <span style={{ color: "rgba(0,0,0,0.08)" }}>// </span>Python · Node · Go · React
+              <span style={{ color: "rgba(0,0,0,0.08)" }}>// </span>Python · Node ·  React
             </p>
             <p style={{ fontSize: "8px", letterSpacing: ".12em", textTransform: "uppercase", color: "rgba(0,0,0,0.2)", margin: 0, lineHeight: 1.8 }}>
               <span style={{ color: "rgba(0,0,0,0.08)" }}>// </span>Next.js · Flutter · Django

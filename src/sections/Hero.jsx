@@ -6,8 +6,8 @@ import Particles, { initParticlesEngine } from "@tsparticles/react"
 import { loadSlim } from "@tsparticles/slim"
 import * as THREE from "three"
 
-
 const currentYear = new Date().getFullYear()
+
 /* ─────────────────────────────────────────────────────────
    Particles — tsparticles v3
 ───────────────────────────────────────────────────────── */
@@ -117,12 +117,67 @@ const FloatingShape = () => {
 }
 
 /* ─────────────────────────────────────────────────────────
+   useHopeSound — plays hope.mp3 with a gentle fade-in
+   the moment animate flips to true (hero becomes visible)
+───────────────────────────────────────────────────────── */
+const useHopeSound = (animate) => {
+  const audioRef  = useRef(null)
+  const firedRef  = useRef(false)
+
+  // Preload on mount
+  useEffect(() => {
+    const audio = new Audio("/audio/hope.mp3")
+    audio.preload = "auto"
+    audio.volume  = 0
+    audioRef.current = audio
+    return () => {
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    }
+  }, [])
+
+  // Fire once when animate becomes true
+  useEffect(() => {
+    if (!animate || firedRef.current) return
+    firedRef.current = true
+    const audio = audioRef.current
+    if (!audio) return
+
+    try {
+      audio.currentTime = 0
+      audio.volume = 0
+      const p = audio.play()
+      if (p !== undefined) {
+        p.then(() => {
+          // Fade in hope.mp3 from 0 → 0.65 over ~1.4s in sync with the hero animation
+          let vol = 0
+          const fadeIn = setInterval(() => {
+            vol = Math.min(vol + 0.04, 0.65)
+            if (audioRef.current) audioRef.current.volume = vol
+            if (vol >= 0.65) clearInterval(fadeIn)
+          }, 80)
+        }).catch(() => {
+          // Fallback: play without fade if promise rejected
+          try {
+            const fb = new Audio("/audio/hope.mp3")
+            fb.volume = 0.65
+            fb.play().catch(() => {})
+          } catch (e) {}
+        })
+      }
+    } catch (e) {}
+  }, [animate])
+}
+
+/* ─────────────────────────────────────────────────────────
    MOBILE HERO
 ───────────────────────────────────────────────────────── */
 const MobileHero = ({ animate }) => {
   const sectionRef = useRef(null)
   const nameRef    = useRef(null)
   const restRef    = useRef(null)
+
+  // hope.mp3 plays when hero animates in
+  useHopeSound(animate)
 
   useGSAP(() => {
     if (!animate || !sectionRef.current || !nameRef.current || !restRef.current) return
@@ -319,6 +374,9 @@ const DesktopHero = ({ animate }) => {
   const bottomRef   = useRef(null)
   const shapeRef    = useRef(null)
 
+  // hope.mp3 plays when hero animates in
+  useHopeSound(animate)
+
   useGSAP(() => {
     if (!animate || !sectionRef.current) return
     const tl = gsap.timeline({ defaults: { ease: "power4.out" } })
@@ -368,21 +426,6 @@ const DesktopHero = ({ animate }) => {
         <span style={{ display: "block", width: "1px", height: "48px", background: "rgba(0,0,0,0.12)" }} />
       </div>
 
-      {/* Scroll hint */}
-      <div style={{
-        position: "absolute", bottom: "44px", left: "52px", zIndex: 10,
-        display: "flex", alignItems: "center", gap: "10px",
-        fontSize: "8px", letterSpacing: ".26em", textTransform: "uppercase",
-        color: "rgba(0,0,0,0.2)", pointerEvents: "none",
-      }}>
-        <div style={{ width: "36px", height: "1px", background: "rgba(0,0,0,0.14)", position: "relative", overflow: "hidden" }}>
-          <span style={{
-            position: "absolute", top: 0, left: "-100%", width: "100%", height: "100%",
-            background: "rgba(0,0,0,0.45)", animation: "scrollSlide 2s 1.5s ease-in-out infinite",
-          }} />
-        </div>
-        Scroll
-      </div>
 
       {/* 3JS Shape */}
       <div
@@ -459,7 +502,7 @@ const DesktopHero = ({ animate }) => {
         }}>
           <div>
             <p style={{ fontSize: "9px", letterSpacing: ".14em", textTransform: "uppercase", color: "rgba(0,0,0,0.22)", margin: "0 0 5px", lineHeight: 1.7 }}>
-              <span style={{ color: "rgba(0,0,0,0.1)" }}>// </span>Python · Node.js · Go · React · Flutter
+              <span style={{ color: "rgba(0,0,0,0.1)" }}>// </span>Python · Node.js · React · Flutter
             </p>
             <p style={{ fontSize: "9px", letterSpacing: ".14em", textTransform: "uppercase", color: "rgba(0,0,0,0.22)", margin: 0, lineHeight: 1.7 }}>
               <span style={{ color: "rgba(0,0,0,0.1)" }}>// </span>Next.js · TypeScript · Django · Vite

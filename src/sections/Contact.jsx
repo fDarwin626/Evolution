@@ -303,7 +303,7 @@ const Contact = memo(() => {
 
         {/* Right — form */}
         <div ref={formRef} className="px-5 py-10 lg:px-16 lg:py-14">
-          <div style={{ fontSize: "9px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", marginBottom: "32px" }}>
+          <div style={{ fontSize: "9px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.65)", marginBottom: "32px" }}>
             Send a message
           </div>
 
@@ -333,7 +333,7 @@ const Contact = memo(() => {
                 { name: "email",   label: "Email address", type: "email", placeholder: "you@example.com" },
               ].map((f) => (
                 <div key={f.name}>
-                  <label style={{ display: "block", fontSize: "8px", letterSpacing: ".2em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", marginBottom: "8px" }}>
+                  <label style={{ display: "block", fontSize: "8px", letterSpacing: ".2em", textTransform: "uppercase", color: "rgba(255,255,255,0.50)", marginBottom: "8px" }}>
                     {f.label}
                   </label>
                   <input
@@ -345,7 +345,7 @@ const Contact = memo(() => {
               ))}
 
               <div>
-                <label style={{ display: "block", fontSize: "8px", letterSpacing: ".2em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)", marginBottom: "8px" }}>
+                <label style={{ display: "block", fontSize: "8px", letterSpacing: ".2em", textTransform: "uppercase", color: "rgba(255,255,255,0.50)", marginBottom: "8px" }}>
                   Message
                 </label>
                 <textarea
@@ -399,10 +399,10 @@ const Contact = memo(() => {
 
       {/* ── Footer bar ── */}
       <div className="flex justify-between items-center px-5 py-5 lg:px-16">
-        <span style={{ fontSize: "9px", letterSpacing: ".18em", textTransform: "uppercase", color: "rgba(255,255,255,0.12)" }}>
+        <span style={{ fontSize: "9px", letterSpacing: ".18em", textTransform: "uppercase", color: "rgba(255,255,255,0.38)" }}>
           © {currentYear} @CoconutStudios
         </span>
-        <span style={{ fontSize: "9px", letterSpacing: ".12em", color: "rgba(255,255,255,0.08)" }}>
+        <span style={{ fontSize: "9px", letterSpacing: ".12em", color: "rgba(255,255,255,0.38)" }}>
           Built with ♥ in Lagos
         </span>
       </div>

@@ -57,6 +57,82 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   const glitchRef               = useRef(Array(TARGET.length).fill(false))
   const lockedCount             = useRef(0)
 
+  // ── Audio refs ──
+  // intro.wav       → plays immediately when loader appears
+  // glitch.wav      → cloned + fired on EACH individual letter glitch
+  // buttonclick.mp3 → fires when user clicks the button
+  // hope.mp3        → MOVED to Hero.jsx, plays on hero animation start
+  const introAudioRef    = useRef(null)
+  const glitchAudioRef   = useRef(null)
+  const btnClickAudioRef = useRef(null)
+  const unlockedRef      = useRef(false)
+
+  useEffect(() => {
+    const intro = new Audio("/audio/intro.wav")
+    intro.preload = "auto"
+    intro.volume = 0.55
+    introAudioRef.current = intro
+
+    // Preload glitch.wav once — we clone this node on every glitch so
+    // rapid overlapping glitches all play simultaneously
+    const glitch = new Audio("/audio/glitch.wav")
+    glitch.preload = "auto"
+    glitchAudioRef.current = glitch
+
+    const btnClick = new Audio("/audio/buttonclick.mp3")
+    btnClick.preload = "auto"
+    btnClick.volume = 0.9
+    btnClickAudioRef.current = btnClick
+
+    // Unlock audio context on first user gesture (required for iOS/Android)
+    const unlockAudio = () => {
+      if (unlockedRef.current) return
+      unlockedRef.current = true
+      ;[introAudioRef, glitchAudioRef, btnClickAudioRef].forEach(ref => {
+        if (!ref.current) return
+        ref.current.play().then(() => {
+          if (ref !== introAudioRef) {
+            ref.current.pause()
+            ref.current.currentTime = 0
+          }
+        }).catch(() => {})
+      })
+      document.removeEventListener("click",    unlockAudio)
+      document.removeEventListener("keydown",  unlockAudio)
+      document.removeEventListener("touchend", unlockAudio)
+    }
+    document.addEventListener("click",    unlockAudio, { once: true })
+    document.addEventListener("keydown",  unlockAudio, { once: true })
+    document.addEventListener("touchend", unlockAudio, { once: true })
+
+    // Play intro immediately (desktop works; mobile waits for gesture above)
+    try {
+      const p = intro.play()
+      if (p !== undefined) p.then(() => { unlockedRef.current = true }).catch(() => {})
+    } catch (e) {}
+
+    return () => {
+      document.removeEventListener("click",    unlockAudio)
+      document.removeEventListener("keydown",  unlockAudio)
+      document.removeEventListener("touchend", unlockAudio)
+      ;[introAudioRef, glitchAudioRef, btnClickAudioRef].forEach(ref => {
+        if (ref.current) { ref.current.pause(); ref.current = null }
+      })
+    }
+  }, [mode])
+
+  // ── playGlitchSound — clones the preloaded node so overlapping glitches
+  //    each get their own audio instance and never cut each other off ──
+  const playGlitchSound = () => {
+    try {
+      if (!glitchAudioRef.current) return
+      const clone = glitchAudioRef.current.cloneNode()
+      clone.volume = 0.35
+      const p = clone.play()
+      if (p !== undefined) p.catch(() => {})
+    } catch (e) {}
+  }
+
   useEffect(() => {
     lockedCount.current = 0
     lockedRef.current   = Array(TARGET.length).fill(false)
@@ -92,6 +168,10 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
       return setTimeout(() => {
         const idx = Math.floor(Math.random() * TARGET.length)
         if (!lockedRef.current[idx]) { scheduleGlitch(); return }
+
+        // ── Fire glitch.wav exactly when each letter glitch triggers ──
+        playGlitchSound()
+
         glitchRef.current[idx] = true
         setDisplay(prev => { const n = [...prev]; n[idx] = { entry: rand(POOL), glitch: true }; return n })
         const flickers = Math.random() > 0.4 ? 3 : 2
@@ -120,7 +200,23 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
     return () => clearTimeout(t)
   }, [showBtn, isEncrypt, lockedIcons])
 
-  const handleBtn = () => { setFade(true); setTimeout(onDone, 900) }
+  // ── Button click — buttonclick.mp3 only ──
+  const handleBtn = () => {
+    try {
+      const btn = btnClickAudioRef.current
+      if (btn) {
+        btn.currentTime = 0
+        const p = btn.play()
+        if (p !== undefined) p.catch(() => {
+          const fb = new Audio("/audio/buttonclick.mp3")
+          fb.volume = 0.9
+          fb.play().catch(() => {})
+        })
+      }
+    } catch (e) {}
+    setFade(true)
+    setTimeout(onDone, 900)
+  }
 
   return (
     <div style={{
@@ -205,9 +301,6 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
 
 /* ─────────────────────────────────────────────────────────
    CorruptedQR — DESKTOP ONLY
-   On mobile this is hidden entirely and replaced with
-   a subtle encrypted corner badge that doesn't overlap
-   any buttons.
 ───────────────────────────────────────────────────────── */
 const QR_GRID = [
   [1,1,1,1,1,1,0],
@@ -253,7 +346,6 @@ const CorruptedQR = ({ onClick, isMobile }) => {
     })
   ).join("\n")
 
-  /* ── MOBILE: tiny corner badge — no overlap with any buttons ── */
   if (isMobile) {
     return (
       <>
@@ -267,45 +359,22 @@ const CorruptedQR = ({ onClick, isMobile }) => {
             to   { opacity:1; transform: scale(1); }
           }
           .mobile-badge {
-            position: fixed;
-            top: 72px;
-            right: 16px;
-            z-index: 500;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 5px 10px;
-            background: rgba(0,0,0,0.75);
-            backdrop-filter: blur(6px);
-            border: 1px solid rgba(229,255,71,0.2);
-            cursor: pointer;
-            user-select: none;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.6s ease;
-            animation: mobileBadgePulse 3s ease-in-out infinite;
+            position: fixed; top: 72px; right: 16px; z-index: 500;
+            display: flex; align-items: center; gap: 6px;
+            padding: 5px 10px; background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(6px); border: 1px solid rgba(229,255,71,0.2);
+            cursor: pointer; user-select: none; opacity: 0; pointer-events: none;
+            transition: opacity 0.6s ease; animation: mobileBadgePulse 3s ease-in-out infinite;
           }
           .mobile-badge.visible {
-            opacity: 1;
-            pointer-events: all;
+            opacity: 1; pointer-events: all;
             animation: mobileBadgeFade 0.6s ease both, mobileBadgePulse 3s 0.6s ease-in-out infinite;
           }
           .mobile-badge:active { opacity: 0.7; }
         `}</style>
-        <div
-          className={`mobile-badge${visible ? " visible" : ""}`}
-          onClick={onClick}
-        >
-          <span style={{
-            width: "5px", height: "5px", borderRadius: "50%",
-            background: "#e5ff47", flexShrink: 0,
-            boxShadow: "0 0 6px rgba(229,255,71,0.6)",
-          }} />
-          <span style={{
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: "7px", letterSpacing: ".22em", textTransform: "uppercase",
-            color: "rgba(229,255,71,0.7)", whiteSpace: "nowrap",
-          }}>
+        <div className={`mobile-badge${visible ? " visible" : ""}`} onClick={onClick}>
+          <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#e5ff47", flexShrink: 0, boxShadow: "0 0 6px rgba(229,255,71,0.6)" }} />
+          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(229,255,71,0.7)", whiteSpace: "nowrap" }}>
             sys.enc_
           </span>
         </div>
@@ -313,7 +382,6 @@ const CorruptedQR = ({ onClick, isMobile }) => {
     )
   }
 
-  /* ── DESKTOP: full QR widget ── */
   return (
     <>
       <style>{`
@@ -341,15 +409,12 @@ const CorruptedQR = ({ onClick, isMobile }) => {
         .qr-label { font-family:'IBM Plex Mono',monospace; font-size:7px; letter-spacing:.22em; text-transform:uppercase; color:rgba(255,255,255,0); transition:color 0.2s ease; white-space:nowrap; }
         .qr-wrap:hover .qr-label { color:rgba(229,255,71,0.55); animation:qrBlink 1.1s step-end infinite; }
       `}</style>
-
       <div className={`qr-wrap${visible ? " visible" : ""}`} onClick={onClick} title="sys.enc_">
         <div className="qr-grid">
           {QR_GRID.flatMap((row, r) =>
             row.map((filled, c) => {
               const idx = r * 7 + c
-              return (
-                <div key={idx} data-cell={idx} className={`qr-cell ${filled ? "filled" : "empty"}`} />
-              )
+              return <div key={idx} data-cell={idx} className={`qr-cell ${filled ? "filled" : "empty"}`} />
             })
           )}
         </div>

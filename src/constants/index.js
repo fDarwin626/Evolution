@@ -163,4 +163,5 @@ export const socials = [
   { name: "LinkedIn", href: "https://www.linkedin.com/in/fuoseigha-darwin-b29168326/" },
   { name: "GitHub", href: "https://github.com/fDarwin626" },
   { name: "Twitter", href: "https://x.com/fuoseigha" },
+  {name: "Tiktok", href: "https://www.tiktok.com/@coconutdummy?_r=1&_t=ZS-98YjFhQNZBN"},
 ];

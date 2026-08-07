@@ -181,7 +181,7 @@ const Contact = memo(() => {
 
       {/* ── Top bar ── */}
       <div className="flex justify-between items-center px-5 pt-5 pb-4 border-b border-white/[0.07] lg:px-16">
-        <span className="text-[10px] tracking-[.2em] uppercase text-white/25">Contact — Info</span>
+        <span className="text-[10px] tracking-[.2em] uppercase text-white/25">Contact Info</span>
         <span className="text-[10px] text-white/15 tracking-[.1em]">FD / {currentYear}</span>
       </div>
 
@@ -226,7 +226,7 @@ const Contact = memo(() => {
         <div className="mt-4 inline-flex items-center gap-2 border border-white/[0.1] px-3 py-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-[#e5ff47] animate-pulse flex-shrink-0" />
           <span className="text-[10px] tracking-[.15em] uppercase text-white/40">
-            Available for new projects — Lagos, NG
+            Available for new projects Lagos, NG
           </span>
         </div>
       </div>
@@ -248,7 +248,7 @@ const Contact = memo(() => {
       {/* ── Main body ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 border-b border-white/[0.07]">
 
-        {/* Left — contact info */}
+        {/* Left contact info */}
         <div ref={infoRef} className="px-5 py-10 border-b border-white/[0.07] lg:border-b-0 lg:border-r lg:px-16 lg:py-14">
           <div className="mb-8" style={{ fontSize: "9px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.2)" }}>
             Contact info
@@ -300,7 +300,7 @@ const Contact = memo(() => {
           </div>
         </div>
 
-        {/* Right — form */}
+        {/* Right form */}
         <div ref={formRef} className="px-5 py-10 lg:px-16 lg:py-14">
           <div style={{ fontSize: "9px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.65)", marginBottom: "32px" }}>
             Send a message
@@ -312,7 +312,7 @@ const Contact = memo(() => {
                 Message sent.
               </div>
               <p style={{ fontSize: "12px", letterSpacing: ".04em", color: "rgba(255,255,255,0.35)", lineHeight: 1.75 }}>
-                Thanks for reaching out — I'll get back to you within 24 hours.
+                Thanks for reaching out I'll get back to you within 24 hours.
               </p>
               <button
                 onClick={() => setSent(false)}

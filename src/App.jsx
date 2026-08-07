@@ -44,7 +44,7 @@ const resolveChar = (entry) => {
 }
 
 /* ─────────────────────────────────────────────────────────
-   Audio cache — one Audio element per file.
+   Audio cache one Audio element per file.
 ───────────────────────────────────────────────────────── */
 const audioCache = {
   intro:       null,
@@ -517,7 +517,7 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
           )}
         </div>
         <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "9px", letterSpacing: ".22em", textTransform: "uppercase", color: "rgba(255,255,255,0.15)", animation: "fadeUp 0.8s 0.4s ease both", textAlign: "center", lineHeight: 2 }}>
-          {isEncrypt ? "Site encrypted — data secured" : "Premium websites & mobile apps"}
+          {isEncrypt ? "Site encrypted data secured" : "Premium websites & mobile apps"}
         </div>
         {showBtn && (
           <button onClick={handleBtn} style={{
@@ -553,298 +553,12 @@ const ScrambleLoader = ({ onDone, mode = "decrypt" }) => {
   )
 }
 
-/* ─────────────────────────────────────────────────────────
-   CorruptedQR — DESKTOP ONLY
-───────────────────────────────────────────────────────── */
-const QR_GRID = [
-  [1,1,1,1,1,1,0],
-  [1,0,0,0,1,0,1],
-  [1,0,1,0,1,1,0],
-  [1,0,0,0,1,0,0],
-  [1,1,1,1,1,0,1],
-  [0,1,0,0,0,1,0],
-  [1,0,1,1,0,0,1],
-]
-
-const GLITCH_OFFSETS = [
-  [ [-3,-2], [-1,3], [2,-1], [3,2],  [-2,-3], [1,-2], [0,0]  ],
-  [ [2,3],  [0,0],  [0,0],  [0,0],  [-3,1],  [0,0],  [3,-2] ],
-  [ [-1,2], [0,0],  [-2,3], [0,0],  [2,-1],  [3,2],  [0,0]  ],
-  [ [3,-3], [0,0],  [0,0],  [0,0],  [-1,3],  [0,0],  [0,0]  ],
-  [ [-2,1], [1,-3], [3,2],  [-3,1], [2,3],   [0,0],  [-1,-2]],
-  [ [0,0],  [2,-2], [0,0],  [0,0],  [0,0],   [-3,3], [0,0]  ],
-  [ [3,1],  [0,0],  [-2,-3],[1,2],  [0,0],   [0,0],  [-3,2] ],
-]
-
-/* ─────────────────────────────────────────────────────────
-   MobileDrawerObserver
-   Watches #Contact entering/leaving the viewport and
-   swaps the enc-drawer-mobile with the ct-footer.
-   Only mounted on mobile (isMobile guard in CorruptedQR).
-───────────────────────────────────────────────────────── */
-const MobileDrawerObserver = () => {
-  useEffect(() => {
-    const contact = document.getElementById("Contact")
-    const drawer  = document.getElementById("enc-drawer-mobile")
-    const footer  = document.getElementById("ct-footer")
-    if (!contact || !drawer || !footer) return
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          // Contact section in view — slide drawer up, push footer out
-          drawer.classList.add("enc-visible")
-          footer.style.transform   = "translateY(100%)"
-          footer.style.opacity     = "0"
-          footer.style.pointerEvents = "none"
-        } else {
-          // Left view — retract drawer, restore footer
-          drawer.classList.remove("enc-visible")
-          footer.style.transform   = ""
-          footer.style.opacity     = ""
-          footer.style.pointerEvents = ""
-        }
-      },
-      { threshold: 0.08 }
-    )
-
-    observer.observe(contact)
-    return () => observer.disconnect()
-  }, [])
-
-  return null
-}
-
-const CorruptedQR = ({ onClick, isMobile }) => {
-  const [visible, setVisible] = useState(false)
-
-  useEffect(() => {
-    const target = document.getElementById("Contact")
-    if (!target) return
-    const observer = new IntersectionObserver(
-      ([entry]) => setVisible(entry.isIntersecting),
-      { threshold: 0.08 }
-    )
-    observer.observe(target)
-    return () => observer.disconnect()
-  }, [])
-
-  const glitchCSS = QR_GRID.flatMap((row, r) =>
-    row.map((filled, c) => {
-      if (!filled) return ""
-      const [dx, dy] = GLITCH_OFFSETS[r][c]
-      const cellIdx = r * 7 + c
-      const vanish = (cellIdx % 7 === 0 || cellIdx % 11 === 0) ? "opacity: 0;" : "opacity: 1;"
-      return `.qr-wrap:hover .qr-cell[data-cell="${cellIdx}"] { transform: translate(${dx}px, ${dy}px); ${vanish} }`
-    })
-  ).join("\n")
-
-  /* ── MOBILE: full-width bottom drawer ── */
-  if (isMobile) {
-    return (
-      <>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400&display=swap');
-
-          @keyframes encScan {
-            0%   { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-          }
-          @keyframes encDot {
-            0%,100% { opacity: 1; }
-            50%     { opacity: 0.15; }
-          }
-          @keyframes encCta {
-            0%,100% { opacity: 1; }
-            50%     { opacity: 0.72; }
-          }
-          @keyframes encGlow {
-            0%,100% { border-top-color: rgba(229,255,71,0.15); }
-            50%     { border-top-color: rgba(229,255,71,0.5); }
-          }
-
-          .enc-drawer-mobile {
-            position: fixed;
-            bottom: 0; left: 0; right: 0;
-            z-index: 500;
-            background: #000;
-            border-top: 1px solid rgba(229,255,71,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 13px 20px;
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
-            transform: translateY(100%);
-            opacity: 0;
-            pointer-events: none;
-            transition:
-              transform 0.45s cubic-bezier(0.22,1,0.36,1),
-              opacity   0.35s ease;
-          }
-          .enc-drawer-mobile.enc-visible {
-            transform: translateY(0);
-            opacity: 1;
-            pointer-events: all;
-            animation: encGlow 3s ease-in-out infinite;
-          }
-          .enc-drawer-mobile:active {
-            background: rgba(229,255,71,0.04);
-          }
-
-          .enc-scan {
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(229,255,71,0.45), transparent);
-            animation: encScan 2.8s linear infinite;
-            pointer-events: none;
-          }
-
-          .enc-dot {
-            width: 5px; height: 5px;
-            border-radius: 50%;
-            background: #e5ff47;
-            box-shadow: 0 0 5px rgba(229,255,71,0.9);
-            flex-shrink: 0;
-            animation: encDot 1.4s ease-in-out infinite;
-          }
-
-          .enc-cta {
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 8px;
-            letter-spacing: .2em;
-            text-transform: uppercase;
-            color: #000;
-            background: #e5ff47;
-            padding: 6px 12px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            animation: encCta 2.5s ease-in-out infinite;
-          }
-        `}</style>
-
-        {/* The drawer itself */}
-        <div
-          className="enc-drawer-mobile"
-          id="enc-drawer-mobile"
-          onClick={onClick}
-          role="button"
-          aria-label="Encrypt site"
-        >
-          <div className="enc-scan" />
-
-          {/* Left — sys label */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
-              <div className="enc-dot" />
-              <span style={{
-                fontFamily: "'IBM Plex Mono', monospace",
-                fontSize: "11px",
-                letterSpacing: ".25em",
-                textTransform: "uppercase",
-                color: "rgba(229,255,71,0.85)",
-                lineHeight: 1,
-              }}>
-                sys.enc_
-              </span>
-            </div>
-            <span style={{
-              fontFamily: "'IBM Plex Mono', monospace",
-              fontSize: "7px",
-              letterSpacing: ".2em",
-              textTransform: "uppercase",
-              color: "rgba(255,255,255,0.22)",
-              paddingLeft: "12px",
-            }}>
-              encryption available
-            </span>
-          </div>
-
-          {/* Right — lock + CTA */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-              stroke="rgba(229,255,71,0.5)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
-            <div className="enc-cta">
-              encrypt
-              <svg width="9" height="9" viewBox="0 0 12 12" fill="none"
-                stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="6" y1="1" x2="6" y2="10"/>
-                <polyline points="2,7 6,11 10,7"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Observer that swaps drawer ↔ footer on scroll */}
-        <MobileDrawerObserver />
-      </>
-    )
-  }
-
-  /* ── DESKTOP: corrupted QR code ── */
-  return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400&display=swap');
-        @keyframes qrFadeIn      { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes qrBreathe     { 0%,100%{box-shadow:0 0 0px rgba(229,255,71,0);border-color:rgba(255,255,255,0.07)} 35%,65%{box-shadow:0 0 14px rgba(229,255,71,0.35),0 0 28px rgba(229,255,71,0.12);border-color:rgba(229,255,71,0.3)} 50%{box-shadow:0 0 8px rgba(229,255,71,0.2),0 0 18px rgba(229,255,71,0.08);border-color:rgba(229,255,71,0.18)} }
-        @keyframes qrCellBreathe { 0%,100%{background:rgba(255,255,255,0.15)} 35%,65%{background:rgba(229,255,71,0.4)} 50%{background:rgba(229,255,71,0.28)} }
-        @keyframes qrFlicker     { 0%,100%{opacity:1} 82%{opacity:1} 84%{opacity:0.1} 86%{opacity:1} 96%{opacity:0.35} 98%{opacity:1} }
-        @keyframes qrBlink       { 0%,100%{opacity:1} 50%{opacity:0} }
-        .qr-wrap { position:fixed; bottom:40px; right:24px; z-index:500; cursor:pointer; user-select:none; display:flex; flex-direction:column; align-items:flex-end; gap:6px; opacity:0; pointer-events:none; transition:opacity 0.7s ease; }
-        .qr-wrap.visible { opacity:1; pointer-events:all; animation:qrFadeIn 0.7s ease both; }
-        .qr-grid { display:grid; grid-template-columns:repeat(7,7px); grid-template-rows:repeat(7,7px); gap:2px; padding:8px; background:rgba(0,0,0,0.8); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,0.07); animation:qrBreathe 3s ease-in-out infinite; transition:border-color 0.15s ease; }
-        .qr-wrap:hover .qr-grid { animation:none; border-color:rgba(229,255,71,0.4); box-shadow:0 0 20px rgba(229,255,71,0.2),0 0 40px rgba(229,255,71,0.08),inset 0 0 12px rgba(229,255,71,0.04); }
-        .qr-cell { width:7px; height:7px; transition:transform 0.12s ease,opacity 0.1s ease,background 0.15s ease; will-change:transform; }
-        .qr-cell.filled { animation:qrCellBreathe 3s ease-in-out infinite; }
-        .qr-cell.empty  { background:transparent; }
-        .qr-cell[data-cell="2"]  { animation-delay:0.1s; }
-        .qr-cell[data-cell="9"]  { animation-delay:0.2s; }
-        .qr-cell[data-cell="20"] { animation-delay:0.05s; }
-        .qr-cell[data-cell="33"] { animation-delay:0.15s; }
-        .qr-cell[data-cell="14"] { animation:qrCellBreathe 3s ease-in-out infinite,qrFlicker 5.7s 1.2s ease-in-out infinite; }
-        .qr-cell[data-cell="41"] { animation:qrCellBreathe 3s ease-in-out infinite,qrFlicker 6.2s 2.1s ease-in-out infinite; }
-        .qr-wrap:hover .qr-cell.filled { background:#e5ff47; filter:drop-shadow(0 0 3px rgba(229,255,71,0.7)); animation:none; }
-        ${glitchCSS}
-        .qr-label { font-family:'IBM Plex Mono',monospace; font-size:7px; letter-spacing:.22em; text-transform:uppercase; color:rgba(255,255,255,0); transition:color 0.2s ease; white-space:nowrap; }
-        .qr-wrap:hover .qr-label { color:rgba(229,255,71,0.55); animation:qrBlink 1.1s step-end infinite; }
-      `}</style>
-      <div className={`qr-wrap${visible ? " visible" : ""}`} onClick={onClick} title="sys.enc_">
-        <div className="qr-grid">
-          {QR_GRID.flatMap((row, r) =>
-            row.map((filled, c) => {
-              const idx = r * 7 + c
-              return <div key={idx} data-cell={idx} className={`qr-cell ${filled ? "filled" : "empty"}`} />
-            })
-          )}
-        </div>
-        <span className="qr-label">sys.enc_</span>
-      </div>
-    </>
-  )
-}
-
 /* ── App ── */
 const App = () => {
   const [isReady, setIsReady]         = useState(false)
   const [fontsLoaded, setFontsLoaded] = useState(false)
   const [audioLoaded, setAudioLoaded] = useState(false)
-  const [loaderMode, setLoaderMode]   = useState("decrypt")
   const [showLoader, setShowLoader]   = useState(true)
-  const [isMobile, setIsMobile]       = useState(false)
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
 
   useEffect(() => {
     const onReady = () => document.fonts.ready.then(() => setFontsLoaded(true))
@@ -859,25 +573,19 @@ const App = () => {
     preloadAudio().then(() => setAudioLoaded(true))
   }, [])
 
-  const handleEncrypt = useCallback(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-    setTimeout(() => { setLoaderMode("encrypt"); setIsReady(false); setShowLoader(true) }, 400)
+const handleLoaderDone = useCallback(() => {
+    setIsReady(true)
+    setShowLoader(false)
   }, [])
-
-  const handleLoaderDone = useCallback(() => {
-    if (loaderMode === "decrypt") { setIsReady(true); setShowLoader(false) }
-    else { setLoaderMode("decrypt"); setIsReady(false); setShowLoader(true) }
-  }, [loaderMode])
   
   const canShowLoader = fontsLoaded && audioLoaded
   return (
     <ErrorBoundary>
       <ReactLenis root style={{ position: "relative", width: "100vw", minHeight: "100vh", overflowX: "hidden" }}>
 
-        {canShowLoader && showLoader && (
-          <ScrambleLoader key={loaderMode + "-" + Date.now()} mode={loaderMode} onDone={handleLoaderDone} />
+    {canShowLoader && showLoader && (
+          <ScrambleLoader onDone={handleLoaderDone} />
         )}
-
         <div style={{ opacity: isReady ? 1 : 0, transition: "opacity 1s ease" }}>
           <Navbar />
           <Hero animate={isReady} />
@@ -889,7 +597,6 @@ const App = () => {
           <Contact />
         </div>
 
-        {isReady && <CorruptedQR onClick={handleEncrypt} isMobile={isMobile} />}
       </ReactLenis>
     </ErrorBoundary>
   )

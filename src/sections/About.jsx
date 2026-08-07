@@ -17,7 +17,7 @@ const WHATSAPP_URL =
    swap with a crossfade, not a shared canvas, so neither image is
    ever resized to match the other. */
 const feedItems = [
-  { photo: "images/Image1.jpeg", ascii: "images/ascii_art.png" },
+  { photo: "images/Image1.jpeg", ascii: "images/ascii.png" },
   { photo: "images/image2.jpeg", ascii: "images/ascii_art2.png" },
   { photo: "images/image3.jpeg", ascii: "images/ascii_art3.png" },
 ];
@@ -76,7 +76,6 @@ const DeveloperFeed = memo(() => {
         className="absolute inset-0 w-full h-full"
         style={{
           objectFit: "contain",
-          imageRendering: "pixelated",
           opacity: mode === "ascii" ? 1 : 0,
           transition: "opacity 0.35s steps(3, end)",
           zIndex: 1,
@@ -514,11 +513,44 @@ const About = memo(() => {
         </div>
       </div>
 
-      {/* ── Philosophy quote ── */}
-      <div ref={quoteRef} className="px-5 py-7 border-b border-white/[0.07] lg:px-16">
+    {/* ── Philosophy quote ── */}
+      <div ref={quoteRef} className="px-5 py-8 border-b border-white/[0.07] lg:px-16">
         <div className="section-label">Philosophy</div>
-        <PhilosophyRotator />
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 lg:gap-10 items-start">
+          {/* ascii portrait, framed HUD-style to match DeveloperFeed */}
+        <div
+            className="relative mx-auto lg:mx-0 w-full max-w-[320px] lg:max-w-none"
+            style={{ aspectRatio: "3 / 4", background: "#000", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <div style={{ position: "absolute", top: "8px", left: "8px", width: "14px", height: "14px", borderTop: "1px solid rgba(255,255,255,0.25)", borderLeft: "1px solid rgba(255,255,255,0.25)", pointerEvents: "none" }} />
+            <div style={{ position: "absolute", top: "8px", right: "8px", width: "14px", height: "14px", borderTop: "1px solid rgba(255,255,255,0.25)", borderRight: "1px solid rgba(255,255,255,0.25)", pointerEvents: "none" }} />
+            <div style={{ position: "absolute", bottom: "8px", left: "8px", width: "14px", height: "14px", borderBottom: "1px solid rgba(255,255,255,0.25)", borderLeft: "1px solid rgba(255,255,255,0.25)", pointerEvents: "none" }} />
+            <div style={{ position: "absolute", bottom: "8px", right: "8px", width: "14px", height: "14px", borderBottom: "1px solid rgba(255,255,255,0.25)", borderRight: "1px solid rgba(255,255,255,0.25)", pointerEvents: "none" }} />
+            <span style={{
+              position: "absolute", top: "8px", left: "28px",
+              fontFamily: "'IBM Plex Mono', monospace", fontSize: "7px", letterSpacing: ".16em",
+              textTransform: "uppercase", color: "rgba(255,255,255,0.25)", zIndex: 2,
+            }}>
+              archive // 01
+            </span>
+              <img
+              src="/images/ascii_art.png"
+              alt="image of the Developer"
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full pointer-events-none select-none"
+              style={{
+                objectFit: "contain",
+                mixBlendMode: "screen",
+                opacity: 0.85,
+              }}
+            />
+
+          </div>
+
+          <PhilosophyRotator />
+        </div>
       </div>
+
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/[0.08]">
         {stats.map((s, i) => (

@@ -9,7 +9,7 @@ import * as THREE from "three"
 const currentYear = new Date().getFullYear()
 
 /* ─────────────────────────────────────────────────────────
-   Particles — tsparticles v3
+   Particles tsparticles v3
 ───────────────────────────────────────────────────────── */
 const ParticlesBg = () => {
   const [engineReady, setEngineReady] = useState(false)
@@ -117,7 +117,7 @@ const FloatingShape = () => {
 }
 
 /* ─────────────────────────────────────────────────────────
-   useHopeSound — plays hope.mp3 with a gentle fade-in
+   useHopeSound plays hope.mp3 with a gentle fade-in
    the moment animate flips to true (hero becomes visible)
 ───────────────────────────────────────────────────────── */
 const useHopeSound = (animate) => {
@@ -591,7 +591,7 @@ const DesktopHero = ({ animate }) => {
 }
 
 /* ─────────────────────────────────────────────────────────
-   Hero — routes mobile vs desktop
+   Hero routes mobile vs desktop
 ───────────────────────────────────────────────────────── */
 const Hero = ({ animate }) => {
   const isMobile = useMediaQuery({ maxWidth: 853 })

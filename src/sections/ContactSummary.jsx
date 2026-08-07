@@ -7,7 +7,7 @@ import { loadSlim } from "@tsparticles/slim";
 
 gsap.registerPlugin(ScrollTrigger);
 
-/* ─── Particles bg — separate id so it doesn't clash with Hero/Work's instances ─── */
+/* ─── Particles bg  separate id so it doesn't clash with Hero/Work's instances ─── */
 const ContactParticlesBg = () => {
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -208,7 +208,7 @@ const ContactSummary = () => {
         </div>
       </div>
 
-      {/* Giant headline — now split-animated */}
+      {/* Giant headline now split-animated */}
       <div ref={headRef} className="px-5 lg:px-16">
         {/* "Got a" */}
         <SplitHeader
@@ -278,7 +278,7 @@ const ContactSummary = () => {
             maxWidth: "420px",
             letterSpacing: ".03em",
           }}>
-            From MVP to production-grade SaaS — I bring the same precision<br className="hidden sm:block" />
+            From MVP to production-grade SaaS I bring the same precision<br className="hidden sm:block" />
             and passion to every engagement.
           </p>
 

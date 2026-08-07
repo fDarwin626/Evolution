@@ -60,7 +60,7 @@ export const projects = [
     id: 6,
     name: "MetaJoyStick",
     description:
-      "A Zentry-inspired web experience built around fluid animation and intentional motion. Every transition serves the user journey — not just decoration. Demonstrates my fullstack range: tight frontend craft backed by solid engineering.",
+      "A Zentry-inspired web experience built around fluid animation and intentional motion. Every transition serves the user journey not just decoration. Demonstrates my fullstack range: tight frontend craft backed by solid engineering.",
     href: "https://metajoystick.onrender.com/",
     image: "/assets/projects/project2.png",
     bgImage: "/assets/backgrounds/poster.jpg",
@@ -89,7 +89,7 @@ export const projects = [
     id: 5,
     name: "LynqApp - Chat App",
     description:
-      "Production-ready mobile chat app built on Flutter + Go. Features real-time messaging, group chats, status updates, voice & video calls via Agora, and smart data caching with Riverpod — engineered for scale, not just demos.",
+      "Production-ready mobile chat app built on Flutter + Go. Features real-time messaging, group chats, status updates, voice & video calls via Agora, and smart data caching with Riverpod engineered for scale, not just demos.",
     href: "",
     image: "/assets/projects/project4.png",
     bgImage: "/assets/backgrounds/table.jpg",
@@ -103,7 +103,7 @@ export const projects = [
     id: 1,
     name: "Lyvo - AI Voice Platform",
     description:
-      "Enterprise-grade AI SaaS built security-first. Text-to-speech, voice cloning, speech-to-text (Whisper AI), audiobook generation, and GPT-4/Gemini agents — all under a multi-layer security architecture with SQL injection detection, device fingerprinting, shadow banning, and automated threat scoring.\n\nPayment processing via Flutterwave with fraud detection and idempotent transactions. A sophisticated agent-sharing system handles password-protected guest access, multi-tenant credit attribution, and usage analytics. Six months of real problem-solving — not a tutorial clone.",
+      "Enterprise-grade AI SaaS built security-first. Text-to-speech, voice cloning, speech-to-text (Whisper AI), audiobook generation, and GPT-4/Gemini agents all under a multi-layer security architecture with SQL injection detection, device fingerprinting, shadow banning, and automated threat scoring.\n\nPayment processing via Flutterwave with fraud detection and idempotent transactions. A sophisticated agent-sharing system handles password-protected guest access, multi-tenant credit attribution, and usage analytics. Six months of real problem-solving not a tutorial clone.",
     href: "https://lyvo-ai.vercel.app/",
     image: "/assets/projects/lyvo.png",
     bgImage: "/assets/backgrounds/interior.jpg",
@@ -146,7 +146,7 @@ export const projects = [
   id: 2,
   name: "Snatched Africa - Wellness App",
   description:
-    "A female-only fitness and wellness app for African women built because most fitness apps show food she doesn't eat and bodies built for someone else. Flutter + Riverpod + Supabase under the hood, with Nigerian meal plans, workout plans designed around African body types, step tracking, and a sisterhood community feed with no follower counts or comparison pressure.\n\nThe real differentiator is the African food scanner — nothing else in the market recognizes Nigerian dishes properly — paired with an AI meal-prep engine (Groq Llama 3.1, GPT fallback) that adapts to what she actually eats. I also built the marketing website and the internal admin panel from scratch, both wired to the same Supabase backend as the app.",
+    "A female-only fitness and wellness app for African women built because most fitness apps show food she doesn't eat and bodies built for someone else. Flutter + Riverpod + Supabase under the hood, with Nigerian meal plans, workout plans designed around African body types, step tracking, and a sisterhood community feed with no follower counts or comparison pressure.\n\nThe real differentiator is the African food scanner nothing else in the market recognizes Nigerian dishes properly paired with an AI meal-prep engine (Groq Llama 3.1, GPT fallback) that adapts to what she actually eats. I also built the marketing website and the internal admin panel from scratch, both wired to the same Supabase backend as the app.",
   href: "https://snatchedafrica.com",
   image: "/assets/projects/Snatched.png",
   bgImage: "/assets/backgrounds/interior.jpg",

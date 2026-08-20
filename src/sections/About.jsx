@@ -3,8 +3,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/all";
 import { projects } from "../constants";
-
-gsap.registerPlugin(ScrollTrigger);
+import lottie from "lottie-web";
 
 const currentYear = new Date().getFullYear();
 
@@ -171,7 +170,7 @@ const philosophyQuotes = [
   },
 ];
 
-const PhilosophyRotator = memo(() => {
+const PhilosophyRotator = memo(({ robotContainerRef }) => {
   const [index, setIndex] = useState(0);
   const quoteRef  = useRef(null);
   const authorRef = useRef(null);
@@ -215,20 +214,26 @@ const PhilosophyRotator = memo(() => {
       <div ref={authorRef} className="mt-3 text-[9px] tracking-[.15em] uppercase text-white/18">
         {current.author}
       </div>
-      <div className="flex gap-1 mt-4">
-        {philosophyQuotes.map((_, i) => (
-          <span key={i} style={{
-            width: "16px", height: "2px",
-            background: i === index ? "#e5ff47" : "rgba(255,255,255,0.12)",
-            transition: "background 0.2s",
-          }} />
-        ))}
+      <div className="flex items-center gap-1 mt-4">
+        <div className="flex gap-1">
+          {philosophyQuotes.map((_, i) => (
+            <span key={i} style={{
+              width: "16px", height: "2px",
+              background: i === index ? "#e5ff47" : "rgba(255,255,255,0.12)",
+              transition: "background 0.2s",
+            }} />
+          ))}
+        </div>
+        <div
+          ref={robotContainerRef}
+          className="ml-auto pointer-events-none"
+          style={{ width: "120px", height: "120px" }}
+        />
       </div>
     </div>
   );
 });
 PhilosophyRotator.displayName = "PhilosophyRotator";
-
 /* ─── Main Component ─── */
 const About = memo(() => {
   const sectionRef = useRef(null);
@@ -242,10 +247,32 @@ const About = memo(() => {
   const ctaRef     = useRef(null);
   const scanRef    = useRef(null);
 
+  const [robotAnimation, setRobotAnimation] = useState(null);
+  const robotContainerRef = useRef(null);
+  const robotAnimInstance = useRef(null);
   const isMobile = useMemo(() =>
     typeof window !== "undefined" && window.innerWidth < 768, []
   );
 
+
+  useEffect(() => {
+    fetch("/images/Robot.json")
+      .then((res) => res.json())
+      .then((data) => setRobotAnimation(data))
+      .catch((err) => console.error("Failed to load robot animation:", err));
+  }, []);
+
+  useEffect(() => {
+    if (!robotAnimation || !robotContainerRef.current) return;
+    robotAnimInstance.current = lottie.loadAnimation({
+      container: robotContainerRef.current,
+      renderer: "svg",
+      loop: true,
+      autoplay: true,
+      animationData: robotAnimation,
+    });
+    return () => robotAnimInstance.current?.destroy();
+  }, [robotAnimation]);
   useGSAP(() => {
     if (!sectionRef.current) return;
     const cleanups = [];
@@ -546,11 +573,9 @@ const About = memo(() => {
             />
 
           </div>
-
-          <PhilosophyRotator />
+          <PhilosophyRotator robotContainerRef={robotContainerRef} />
         </div>
       </div>
-
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-white/[0.08]">
         {stats.map((s, i) => (

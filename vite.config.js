@@ -9,4 +9,7 @@ export default defineConfig({
     tailwindcss(),
 
   ],
+  optimizeDeps: {
+    include: ['lottie-react'],
+  },
 })

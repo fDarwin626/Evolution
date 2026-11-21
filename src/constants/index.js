@@ -57,6 +57,25 @@ export const servicesData = [
 
 export const projects = [
   {
+    id: 5,
+    name: "CocoVerse UI - Flutter Effects Package",
+    description:
+      "A Flutter package of animated 3D and particle effects: glossy spheres, glass rings, clay robots, a wet eyeball that follows your finger, a goldfish, fireworks, a cracked meteor, loaders and full-screen backdrops. Every effect is one widget with a live preview, a documented parameter list and code you can copy straight into a project.\n\nThe hard part is how they are drawn. Most effects run on fragment shaders I wrote in GLSL: ray marching signed distance fields for the robots and the urchin, ray casting convex slabs for the meteor, and ray tracing a refracting cornea for the eyeball. The rest are built from raw vertex meshes and baked pictures. Every effect has low, medium and high quality tiers so it stays smooth on weak phones.\n\nI also built the documentation site: Next.js with one shared Flutter web engine where every phone on the page is its own view, so only the phone you point at animates and the rest hold a good frame. Views, copies and likes are counted in Supabase, and every effect's docs come from a single TypeScript source that also generates llms.txt, a sitemap and structured data, so search engines and AI agents can read every parameter. Published on pub.dev, with the live site on Vercel.",
+    href: "https://cocoverse-ui.vercel.app",
+    image: "/assets/projects/cocoverse.png",
+    bgImage: "/assets/backgrounds/table.jpg",
+    frameworks: [
+      { id: 1, name: "Flutter" },
+      { id: 2, name: "Dart" },
+      { id: 3, name: "GLSL" },
+      { id: 4, name: "Next.js" },
+      { id: 5, name: "TypeScript" },
+      { id: 6, name: "GSAP" },
+      { id: 7, name: "Supabase" },
+      { id: 8, name: "Tailwind CSS" },
+    ],
+  },
+{
     id: 7,
     name: "MetaJoyStick",
     description:
@@ -86,7 +105,7 @@ export const projects = [
     ],
   },
   {
-    id: 5,
+    id: 8,
     name: "LynqApp - Chat App",
     description:
       "Production-ready mobile chat app built on Flutter + Go. Features real-time messaging, group chats, status updates, voice & video calls via Agora, and smart data caching with Riverpod engineered for scale, not just demos.",
